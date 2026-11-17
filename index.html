@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-512.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>body{margin:0}</style>
+</head>
+<body>
+<title>Calculadora de Comisiones</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Comisiones">
+<meta name="theme-color" content="#0B7A5E">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: app — barra superior con total; pestañas Gestores / Tabla de % / Productos; en escritorio tarjetas de gestor a la izquierda y resumen fijo a la derecha; en celular barra de pestañas abajo */
+:root{
+  --bg:#EEF2F1; --surface:#FFFFFF; --sunk:#F5F8F7; --ink:#10201C; --muted:#5B6B66; --line:#D5DEDB;
+  --accent:#0B7A5E; --accent-ink:#FFFFFF; --accent-soft:#DDF0E9;
+  --hero-bg:#10201C; --hero-fg:#EAF5F1; --hero-muted:#9FB8B0; --hero-line:#2A3B36;
+  --c1:#9A3D8F; --c2:#2F5BD3; --c3:#B7791F; --c4:#0B7A5E;
+  --up:#0B7A5E; --danger:#B42318;
+  --f-display:"Sora","Segoe UI",system-ui,sans-serif;
+  --f-body:"Manrope","Segoe UI",system-ui,sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1513; --surface:#16201D; --sunk:#111A17; --ink:#E6EEEB; --muted:#93A39E; --line:#26332F;
+  --accent:#3CC79D; --accent-ink:#06221A; --accent-soft:#183A30;
+  --hero-bg:#1C2A26; --hero-fg:#EAF5F1; --hero-muted:#93A39E; --hero-line:#2E3F3A;
+  --c1:#D884CC; --c2:#7C9BFF; --c3:#E2A84A; --c4:#3CC79D;
+  --up:#3CC79D; --danger:#F97066; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0E1513; --surface:#16201D; --sunk:#111A17; --ink:#E6EEEB; --muted:#93A39E; --line:#26332F;
+  --accent:#3CC79D; --accent-ink:#06221A; --accent-soft:#183A30;
+  --hero-bg:#1C2A26; --hero-fg:#EAF5F1; --hero-muted:#93A39E; --hero-line:#2E3F3A;
+  --c1:#D884CC; --c2:#7C9BFF; --c3:#E2A84A; --c4:#3CC79D;
+  --up:#3CC79D; --danger:#F97066; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:16px;padding-block:12px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.mark{width:34px;height:34px;border-radius:10px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:17px;flex:none}
+.brand h1{font-family:var(--f-display);font-size:17px;font-weight:600;margin:0;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand small{display:block;color:var(--muted);font-size:12px;line-height:1.2;white-space:nowrap}
+.tabs{display:flex;gap:4px;margin-left:auto;background:var(--sunk);padding:4px;border-radius:12px;border:1px solid var(--line)}
+.tab{border:0;background:transparent;padding:8px 14px;border-radius:9px;cursor:pointer;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:8px;white-space:nowrap}
+.tab svg{width:18px;height:18px;flex:none}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.sync{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block}
+.sync[data-s="saving"] i{background:var(--c3)}
+.sync[data-s="error"] i{background:var(--danger)}
+.sync[data-s="local"] i{background:var(--muted)}
+
+main{padding-block:20px 120px}
+.banner{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;background:var(--accent-soft);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;margin-bottom:18px;font-size:14px}
+.sec-head{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px;margin-bottom:16px}
+.sec-head h2{font-family:var(--f-display);font-size:22px;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sec-head p{margin:4px 0 0;color:var(--muted);max-width:62ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+
+.btn{border:1px solid var(--line);background:var(--surface);padding:9px 14px;border-radius:10px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--danger);border-color:transparent;background:transparent}
+.btn.danger.solid{background:var(--danger);color:#fff}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.small{padding:6px 10px;font-size:13px}
+.icon-btn{border:0;background:transparent;color:var(--muted);width:32px;height:32px;border-radius:8px;cursor:pointer;display:grid;place-items:center;flex:none}
+.icon-btn:hover{background:var(--sunk);color:var(--danger)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.confirm{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--danger);font-weight:700}
+
+.txt,.sel,.num{padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);font-weight:600;min-width:0}
+.txt:focus,.sel:focus,.num:focus,.money input:focus{background:var(--surface);border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.field{display:grid;gap:5px;min-width:0}
+.field > span{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.money{position:relative;min-width:0}
+.money::before{content:"$";position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:700;pointer-events:none}
+.money input{width:100%;text-align:right;padding:9px 12px 9px 24px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);font-weight:700;font-size:15px}
+
+.chip{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:12px;padding:3px 10px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;color:var(--lc);background:color-mix(in srgb,var(--lc) 14%,transparent);border:1px solid color-mix(in srgb,var(--lc) 35%,transparent)}
+.pct{font-weight:800;font-size:13px;color:var(--lc);white-space:nowrap}
+
+/* Gestores */
+.calc{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:20px;align-items:start}
+.glist{display:grid;gap:16px;min-width:0}
+.gcard{overflow:hidden;border-left:5px solid var(--lc)}
+.ghead{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 16px 10px}
+.avatar{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:15px;color:var(--lc);background:color-mix(in srgb,var(--lc) 14%,transparent)}
+.gname{border:1px solid transparent;background:transparent;font-family:var(--f-display);font-weight:600;font-size:17px;padding:5px 8px;border-radius:8px;width:100%;min-width:0}
+.gname:hover{border-color:var(--line)}
+.gname:focus{border-color:var(--accent);outline:none;background:var(--sunk)}
+.gmeta{display:grid;grid-template-columns:130px minmax(0,240px);gap:8px 12px;align-items:end;padding:0 16px 14px}
+.gmeta .num{width:100%;text-align:right}
+.auto-note{font-size:12px;color:var(--muted);grid-column:1 / -1}
+.lines{border-top:1px solid var(--line)}
+.lhead,.line{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) 64px minmax(110px,auto) 32px;gap:10px;align-items:center;padding:8px 16px}
+.lhead{font-size:11px;color:var(--muted);font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:var(--sunk);padding-block:6px}
+.line{border-top:1px solid var(--line)}
+.line .sel{width:100%}
+.line .r{text-align:right}
+.lcom{font-weight:700}
+.addline{padding:8px 16px;border-top:1px solid var(--line)}
+.gfoot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:14px 16px;background:var(--sunk);border-top:1px solid var(--line)}
+.gfoot div span{display:block;font-size:12px;color:var(--muted);font-weight:700}
+.gfoot div strong{font-size:17px;font-weight:800}
+.gfoot .gain{color:var(--up)}
+.gfoot .top-note{font-size:13px;color:var(--muted);font-weight:600}
+.gfoot .lost{color:var(--danger)}
+.gfoot .projnote{display:block;font-size:12px;color:var(--muted);font-weight:600}
+
+.summary{position:sticky;top:calc(env(safe-area-inset-top,0px) + 78px);display:grid;gap:14px}
+.hero{background:var(--hero-bg);color:var(--hero-fg);border-radius:18px;padding:22px}
+.hero .lbl{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--hero-muted);font-weight:700}
+.hero .big{font-family:var(--f-display);font-size:clamp(32px,5.5vw,42px);font-weight:700;letter-spacing:-.02em;line-height:1.1;margin:6px 0 16px;word-break:break-word}
+.hero .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid var(--hero-line);padding-top:14px}
+.hero .row span{display:block;font-size:12px;color:var(--hero-muted)}
+.hero .row strong{font-size:17px;font-weight:800}
+.hero .potential{margin-top:14px;border-top:1px solid var(--hero-line);padding-top:14px;display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
+.hero .potential strong{color:#FF8A80;font-size:20px;font-family:var(--f-display)}
+.hero .potential span{font-size:13px;color:var(--hero-muted);max-width:28ch}
+.brows{padding:4px 0}
+.brow{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n a" "s s" "g g" "b b";gap:4px 12px;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.brow .n{grid-area:n}.brow .a{grid-area:a}.brow .s{grid-area:s}.brow .g{grid-area:g}.brow .bar{grid-area:b}
+.brow:last-child{border-bottom:0}
+.brow:hover{background:var(--sunk)}
+.brow .n{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.brow .a{text-align:right;font-weight:800}
+.brow .s{font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center;min-width:0}
+.brow .g{font-size:12px;color:var(--danger);font-weight:700;min-width:0}
+.bar{grid-column:1 / -1;height:6px;border-radius:4px;background:var(--sunk);overflow:hidden;margin-top:6px;display:flex}
+.bar b{display:block;height:100%;background:var(--lc)}
+.bar i{display:block;height:100%;background:color-mix(in srgb,var(--danger) 35%,transparent)}
+
+/* Tabla de % */
+.matrix-wrap{overflow-x:auto}
+table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760px}
+.matrix th,.matrix td{padding:8px;border-bottom:1px solid var(--line);text-align:center}
+.matrix thead th{background:var(--sunk);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.matrix thead input{width:100%;text-align:center;font-weight:800;font-size:13px;border:1px solid transparent;background:transparent;padding:6px;border-radius:8px;text-transform:none;letter-spacing:0;color:var(--ink)}
+.matrix thead input:focus{border-color:var(--accent);background:var(--surface);outline:none}
+.matrix tbody tr:last-child td,.matrix tbody tr:last-child th{border-bottom:0}
+.matrix th.lv{text-align:left;min-width:220px}
+.lvcell{display:grid;grid-template-columns:12px minmax(0,1fr) 92px;gap:10px;align-items:center}
+.lvcell .dot{width:12px;height:12px;border-radius:4px;background:var(--lc)}
+.lvcell .min{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
+.lvcell .min input{width:52px;text-align:right;padding:6px}
+.cell{display:flex;align-items:center;justify-content:center;border-radius:10px;padding:2px 8px;background:color-mix(in srgb,var(--accent) var(--heat),var(--surface));border:1px solid var(--line)}
+.cell input{width:58px;border:0;background:transparent;text-align:right;font-weight:800;font-size:15px;padding:8px 2px}
+.cell input:focus{outline:none}
+.cell span{font-weight:800;color:var(--muted)}
+.cell:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.hint{color:var(--muted);font-size:13px;margin-top:12px}
+
+/* Productos */
+.addform{display:grid;grid-template-columns:minmax(0,1fr) 240px auto;gap:10px;padding:16px;margin-bottom:18px;align-items:end}
+.plist .item{display:grid;grid-template-columns:minmax(0,1fr) 240px 120px 90px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line)}
+.plist .item:last-child{border-bottom:0}
+.plist .used{font-size:13px;color:var(--muted)}
+.backup{padding:16px;display:grid;gap:12px}
+.backup #bkArea{display:grid;gap:10px}
+.backup #bkArea:empty{display:none}
+.bk{width:100%;min-height:120px;resize:vertical;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);font:12px/1.4 ui-monospace,Consolas,monospace;word-break:break-all}
+.bkmsg{margin:0;font-size:13px;color:var(--muted)}
+
+.emptystate{max-width:540px;margin:48px auto;text-align:center;display:grid;gap:14px;justify-items:center}
+.emptystate h2{font-family:var(--f-display);margin:0;font-size:24px;text-wrap:balance}
+.emptystate p{margin:0;color:var(--muted)}
+.empty-g{padding:14px 16px;color:var(--muted);font-size:14px}
+
+.bottom{display:none}
+@media (max-width:1080px){
+  .calc{grid-template-columns:minmax(0,1fr)}
+  .summary{position:static;order:-1}
+}
+@media (min-width:761px) and (max-width:1080px){
+  .summary{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+}
+@media (max-width:760px){
+  .tabs,.sync .txtlbl{display:none}
+  .gmeta{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .lhead{display:none}
+  .line{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px;grid-template-areas:"p p x" "m m m" "c v v";row-gap:8px}
+  .line .lp{grid-area:p}.line .money{grid-area:m}.line .lpctc{grid-area:c;text-align:left}.line .lcomc{grid-area:v}.line .icon-btn{grid-area:x}
+  .gfoot{grid-template-columns:1fr 1fr}
+  .gfoot .third{grid-column:1 / -1}
+  .addform,.plist .item{grid-template-columns:minmax(0,1fr)}
+  .bottom{display:grid;grid-template-columns:repeat(3,1fr);position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);
+    padding-bottom:max(8px,env(safe-area-inset-bottom,0px));padding-top:6px;padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+  .bottom .tab{flex-direction:column;gap:2px;font-size:12px;padding:6px 4px;justify-content:center}
+  .bottom .tab svg{width:22px;height:22px}
+  .bottom .tab[aria-selected="true"]{background:var(--accent-soft);color:var(--accent);box-shadow:none}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark">%</div>
+      <h1>Calculadora de Comisiones</h1>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Secciones">
+      <button class="tab" role="tab" data-view="gestores" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M16 4a4 4 0 0 1 0 8M22 21c0-3-1.5-5-4-5.6"/></svg>Gestores</button>
+      <button class="tab" role="tab" data-view="tabla" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Tabla de %</button>
+      <button class="tab" role="tab" data-view="productos" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Productos</button>
+    </nav>
+    <div class="sync" id="sync" data-s="ok"><i></i><span class="txtlbl" id="syncTxt" hidden>Cargando…</span></div>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+<nav class="bottom" role="tablist" aria-label="Secciones" id="bottomNav"></nav>
+
+<script>
+(function(){
+  const LCOL = ['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--muted)','var(--muted)'];
+  const money = new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',minimumFractionDigits:2,maximumFractionDigits:2});
+  const num = new Intl.NumberFormat('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const pctf = v => (Number(v)||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}) + '%';
+  const $ = s => document.querySelector(s);
+  const main = $('#main');
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const uid = () => Math.random().toString(36).slice(2,10);
+  const parseAmt = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isFinite(n) ? n : 0; };
+  const round2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+  const initials = s => (String(s).trim().split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0]).join('') || '?').toUpperCase();
+
+  // Configuración base (la de tu tabla de categorías)
+  function baseConfig(){
+    return {
+      levels:[
+        {id:'lv-master', name:'Máster', min:90},
+        {id:'lv-senior', name:'Senior', min:70},
+        {id:'lv-junior', name:'Junior', min:60},
+        {id:'lv-mant', name:'Mantenido', min:1}
+      ],
+      types:[
+        {id:'ty-diario', name:'Diario'},
+        {id:'ty-s1216', name:'Sem 12 y 16'},
+        {id:'ty-s2024', name:'Sem 20 y 24'},
+        {id:'ty-crece', name:'Crece'},
+        {id:'ty-pyme', name:'PYME'}
+      ],
+      rates:{
+        'lv-master':{'ty-diario':4,'ty-s1216':6.5,'ty-s2024':7.5,'ty-crece':4.5,'ty-pyme':3.5},
+        'lv-senior':{'ty-diario':3.5,'ty-s1216':5.5,'ty-s2024':7,'ty-crece':4,'ty-pyme':3},
+        'lv-junior':{'ty-diario':2.5,'ty-s1216':4.5,'ty-s2024':6.5,'ty-crece':3,'ty-pyme':2},
+        'lv-mant':{'ty-diario':1,'ty-s1216':2.5,'ty-s2024':4.5,'ty-crece':1.5,'ty-pyme':1}
+      },
+      products:[
+        {id:'pr-crece12', name:'CRECE12', typeId:'ty-crece'},
+        {id:'pr-crece12sac', name:'CRECE12 SAC', typeId:'ty-crece'},
+        {id:'pr-s12', name:'s12', typeId:'ty-s1216'},
+        {id:'pr-s16', name:'s16', typeId:'ty-s1216'},
+        {id:'pr-s20', name:'s20', typeId:'ty-s2024'},
+        {id:'pr-s24', name:'s24', typeId:'ty-s2024'}
+      ],
+      gestores:[]
+    };
+  }
+
+  let state = null, loaded = false, view = 'gestores';
+  try { const v = localStorage.getItem('com_view2'); if (['gestores','tabla','productos'].includes(v)) view = v; } catch(e){}
+  let db = null, ref = null, mode = 'local', pendingRemote = false;
+
+  $('#bottomNav').innerHTML = document.querySelector('.tabs').innerHTML;
+  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+  function setView(v){
+    view = v; confirmKey = null;
+    try { localStorage.setItem('com_view2', v); } catch(e){}
+    document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.view === v)));
+    render(); window.scrollTo({top:0});
+  }
+
+  // ---------- Reglas ----------
+  const sortedLevels = () => [...state.levels].sort((a,b) => (b.min||0) - (a.min||0));
+  const levelIdx = id => sortedLevels().findIndex(l => l.id === id);
+  const levelColor = id => LCOL[Math.max(0, levelIdx(id))];
+  function levelOf(g){
+    const L = sortedLevels();
+    if (Number(g.clients) > 0){ return L.find(l => Number(g.clients) >= (Number(l.min)||0)) || L[L.length-1]; }
+    return L.find(l => l.id === g.levelId) || L[L.length-1];
+  }
+  function nextUp(level){ const L = sortedLevels(); const i = L.findIndex(l => l.id === level.id); return i > 0 ? L[i-1] : null; }
+  function nextDown(level){ const L = sortedLevels(); const i = L.findIndex(l => l.id === level.id); return i >= 0 && i < L.length-1 ? L[i+1] : null; }
+  function rate(levelId, productId){
+    const p = state.products.find(x => x.id === productId); if (!p) return 0;
+    return Number(state.rates?.[levelId]?.[p.typeId]) || 0;
+  }
+  function calcGestor(g){
+    const lv = levelOf(g), up = nextUp(lv), down = up ? null : nextDown(lv);
+    let rec = 0, com = 0, proj = 0, low = 0;
+    const lines = g.lines.map(l => {
+      const amt = Number(l.amount)||0, r = rate(lv.id, l.productId), c = round2(amt*r/100);
+      const pr = up ? rate(up.id, l.productId) : r, pc = round2(amt*pr/100);
+      const dr = down ? rate(down.id, l.productId) : r, dc = round2(amt*dr/100);
+      rec += amt; com += c; proj += pc; low += dc;
+      return {...l, r, c, pr, pc};
+    });
+    return {lv, up, down, lines, rec: round2(rec), com: round2(com), proj: round2(proj), gain: round2(proj - com), low: round2(low), loss: round2(com - low)};
+  }
+  function calcAll(){
+    const gs = state.gestores.map(g => ({g, ...calcGestor(g)}));
+    const rec = gs.reduce((a,x) => a + x.rec, 0), com = gs.reduce((a,x) => a + x.com, 0), proj = gs.reduce((a,x) => a + x.proj, 0);
+    const risk = gs.reduce((a,x) => a + (x.down ? x.loss : 0), 0);
+    return {gs, rec: round2(rec), com: round2(com), proj: round2(proj), gain: round2(proj - com), risk: round2(risk), riskN: gs.filter(x => x.down).length};
+  }
+
+  // ---------- Guardado ----------
+  let saveTimer = null, saving = false, again = false, lastSaved = '';
+  function setSync(s, t){ $('#sync').dataset.s = s; $('#syncTxt').textContent = t; }
+  function save(){ clearTimeout(saveTimer); setSync('saving','Guardando…'); saveTimer = setTimeout(() => { saveTimer = null; flush(); }, 500); }
+  async function flush(){
+    if (saving){ again = true; return; }
+    const body = JSON.stringify(state);
+    if (mode === 'local'){
+      try { localStorage.setItem('com_state2', body); setSync('local','Guardado en este equipo'); } catch(e){ setSync('error','No se pudo guardar'); }
+      return;
+    }
+    saving = true;
+    try { await ref.set(JSON.parse(body)); lastSaved = body; setSync('ok','Guardado'); }
+    catch(e){ setSync('error', e && e.code === 'invalid_argument' ? 'Solo lectura' : 'No se guardó, reintenta'); }
+    saving = false;
+    if (again){ again = false; flush(); }
+  }
+
+  // ---------- Render ----------
+  let confirmKey = null;
+  function render(){
+    updateHeader();
+    if (!loaded){ main.innerHTML = '<div class="emptystate"><p>Cargando tus datos…</p></div>'; return; }
+    if (!state){ renderEmpty(); return; }
+    if (view === 'gestores') renderGestores();
+    else if (view === 'tabla') renderTabla();
+    else renderProductos();
+  }
+  function updateHeader(){
+    /* encabezado fijo: solo el nombre de la app */
+  }
+  function banner(){
+    if (!state?.imported) return '';
+    return `<div class="banner"><span><b>Cargado desde tu Excel.</b> Ya puedes editar importes, clientes y porcentajes.</span>
+      <button class="btn small" data-act="hidebanner">Entendido</button></div>`;
+  }
+  function renderEmpty(){
+    main.innerHTML = `<div class="emptystate">
+      <div class="mark" style="width:56px;height:56px;font-size:26px;border-radius:16px">%</div>
+      <h2>Empieza con tu tabla de comisiones</h2>
+      <p>Se cargan las 4 categorías (Máster, Senior, Junior y Mantenido), los 5 tipos de producto y sus porcentajes. Después agregas a tus gestores.</p>
+      <button class="btn primary" data-act="create">Cargar tabla base</button>
+    </div>`;
+  }
+
+  const levelOpts = sel => sortedLevels().map(l => `<option value="${l.id}" ${l.id===sel?'selected':''}>${esc(l.name)}</option>`).join('');
+  const prodOpts = sel => state.products.map(p => `<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(p.name)}</option>`).join('');
+
+  function summaryHTML(t){
+    const max = Math.max(1, ...t.gs.map(x => x.proj));
+    return `<div class="hero">
+      <div class="lbl">Comisión total</div>
+      <div class="big">${money.format(t.com)}</div>
+      <div class="row">
+        <div><span>Recuperado</span><strong>${money.format(t.rec)}</strong></div>
+        <div><span>% promedio</span><strong>${t.rec ? pctf(t.com/t.rec*100) : '0.00%'}</strong></div>
+      </div>
+      <div class="potential"><span>Se deja de ganar por no subir de categoría</span><strong>−${money.format(t.gain)}</strong></div>
+      ${t.riskN ? `<div class="potential"><span>Se perdería si ${t.riskN === 1 ? 'el de' : 'los de'} ${esc(sortedLevels()[0].name)} ${t.riskN === 1 ? 'baja' : 'bajan'} una categoría</span><strong>−${money.format(t.risk)}</strong></div>` : ''}
+    </div>
+    <div class="panel brows">${t.gs.length ? t.gs.map(x => `
+      <div class="brow" data-jump="${x.g.id}" style="--lc:${levelColor(x.lv.id)}">
+        <span class="n">${esc(x.g.name)}</span><span class="a">${money.format(x.com)}</span>
+        <span class="s"><span class="chip">${esc(x.lv.name)}</span>${money.format(x.rec)}</span>
+        <span class="g">${x.up ? 'Deja de ganar ' + money.format(x.gain) + ' vs ' + esc(x.up.name) : x.down ? 'Perdería ' + money.format(x.loss) + ' si baja a ' + esc(x.down.name) : 'Categoría más alta'}</span>
+        <div class="bar"><b style="width:${(x.com/max*100).toFixed(2)}%"></b><i style="width:${(Math.max(0,x.up ? x.gain : 0)/max*100).toFixed(2)}%"></i></div>
+      </div>`).join('') : '<div class="empty-g">Agrega un gestor para ver el resumen.</div>'}</div>`;
+  }
+
+  function gestorHTML(x){
+    const g = x.g, auto = Number(g.clients) > 0, lc = levelColor(x.lv.id);
+    return `<section class="panel gcard" id="g-${g.id}" style="--lc:${lc}">
+      <div class="ghead">
+        <div class="avatar" data-gav="${g.id}">${esc(initials(g.name))}</div>
+        <input class="gname" id="gn-${g.id}" data-gname="${g.id}" value="${esc(g.name)}" maxlength="60" aria-label="Nombre del gestor">
+        ${confirmKey === 'g:'+g.id
+          ? `<span class="confirm">¿Borrar gestor? <button class="btn small danger solid" data-delg="${g.id}">Sí</button><button class="btn small" data-act="noconfirm">No</button></span>`
+          : `<button class="icon-btn" data-askg="${g.id}" aria-label="Borrar gestor ${esc(g.name)}" title="Borrar gestor"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>`}
+      </div>
+      <div class="gmeta">
+        <label class="field"><span># de clientes</span><input class="num" id="gc-${g.id}" data-gclients="${g.id}" inputmode="numeric" placeholder="—" value="${Number(g.clients) > 0 ? g.clients : ''}"></label>
+        <label class="field"><span>Categoría</span><select class="sel" id="gl-${g.id}" data-glevel="${g.id}" ${auto ? 'disabled' : ''}>${levelOpts(x.lv.id)}</select></label>
+        <span class="auto-note" data-gnote="${g.id}">${auto ? 'Se asigna sola por el número de clientes.' : 'Escribe los clientes para asignarla automáticamente, o elígela a mano.'}</span>
+      </div>
+      <div class="lines">
+        <div class="lhead"><span>Producto</span><span style="text-align:right">Recuperado</span><span style="text-align:right">%</span><span style="text-align:right">Comisión</span><span></span></div>
+        ${x.lines.map(l => `
+          <div class="line">
+            <select class="sel lp" id="lp-${l.id}" data-lprod="${g.id}:${l.id}" aria-label="Producto">${prodOpts(l.productId)}</select>
+            <div class="money"><input id="la-${l.id}" data-lamt="${g.id}:${l.id}" inputmode="decimal" autocomplete="off" placeholder="0.00" value="${l.amount ? num.format(l.amount) : ''}" aria-label="Importe recuperado"></div>
+            <span class="pct r lpctc" data-lpct="${l.id}">${pctf(l.r)}</span>
+            <span class="lcom r lcomc" data-lcom="${l.id}">${money.format(l.c)}</span>
+            <button class="icon-btn" data-dell="${g.id}:${l.id}" aria-label="Quitar producto" title="Quitar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          </div>`).join('')}
+        <div class="addline"><button class="btn small ghost" data-addl="${g.id}">+ Agregar producto</button></div>
+      </div>
+      <div class="gfoot">
+        <div><span>Recuperado</span><strong data-grec="${g.id}">${money.format(x.rec)}</strong></div>
+        <div><span>Comisión actual</span><strong data-gcom="${g.id}">${money.format(x.com)}</strong></div>
+        <div class="third" data-gproj="${g.id}">${projHTML(x)}</div>
+      </div>
+    </section>`;
+  }
+  function faltan(x){
+    const c = Number(x.g.clients) || 0;
+    if (!x.up || c <= 0) return '';
+    const n = Math.max(0, (Number(x.up.min)||0) - c);
+    return n > 0 ? ` · le faltan ${n} cliente${n===1?'':'s'}` : '';
+  }
+  function projHTML(x){
+    return x.up ? `<span>Deja de ganar vs ${esc(x.up.name)}${faltan(x)}</span><strong class="lost">−${money.format(x.gain)}</strong><small class="projnote">En ${esc(x.up.name)} cobraría ${money.format(x.proj)}</small>`
+                : x.down ? `<span>Si baja a ${esc(x.down.name)}${Number(x.g.clients) > 0 ? ` · baja con menos de ${x.lv.min} clientes (tiene ${x.g.clients})` : ''}</span><strong class="lost">−${money.format(x.loss)}</strong><small class="projnote">En ${esc(x.down.name)} cobraría ${money.format(x.low)}</small>`
+                : `<span>Categoría</span><strong class="top-note">Única categoría</strong>`;
+  }
+
+  function renderGestores(){
+    const t = calcAll();
+    main.innerHTML = banner() + `
+      <div class="sec-head">
+        <div><h2>Gestores</h2><p>Captura lo recuperado por producto. El % sale de cruzar la categoría del gestor con el tipo de producto.</p></div>
+        <div class="tools"><button class="btn primary" data-act="addg">+ Agregar gestor</button></div>
+      </div>
+      <div class="calc">
+        <div class="glist">${t.gs.length ? t.gs.map(gestorHTML).join('') : '<div class="panel empty-g">Aún no hay gestores. Agrega el primero.</div>'}</div>
+        <aside class="summary" id="summary">${summaryHTML(t)}</aside>
+      </div>`;
+  }
+
+  // Actualiza solo textos, sin reconstruir campos (no se pierde el foco)
+  function refresh(){
+    const t = calcAll();
+    t.gs.forEach(x => {
+      const g = x.g, card = document.getElementById('g-'+g.id); if (!card) return;
+      card.style.setProperty('--lc', levelColor(x.lv.id));
+      x.lines.forEach(l => {
+        const p = card.querySelector(`[data-lpct="${l.id}"]`); if (p) p.textContent = pctf(l.r);
+        const c = card.querySelector(`[data-lcom="${l.id}"]`); if (c) c.textContent = money.format(l.c);
+      });
+      card.querySelector(`[data-grec="${g.id}"]`).textContent = money.format(x.rec);
+      card.querySelector(`[data-gcom="${g.id}"]`).textContent = money.format(x.com);
+      card.querySelector(`[data-gproj="${g.id}"]`).innerHTML = projHTML(x);
+      const sel = card.querySelector(`[data-glevel="${g.id}"]`), auto = Number(g.clients) > 0;
+      if (sel){ sel.value = x.lv.id; sel.disabled = auto; }
+      const note = card.querySelector(`[data-gnote="${g.id}"]`);
+      if (note) note.textContent = auto ? 'Se asigna sola por el número de clientes.' : 'Escribe los clientes para asignarla automáticamente, o elígela a mano.';
+      const av = card.querySelector(`[data-gav="${g.id}"]`); if (av) av.textContent = initials(g.name);
+    });
+    const s = $('#summary'); if (s) s.innerHTML = summaryHTML(t);
+    updateHeader();
+  }
+
+  function renderTabla(){
+    const L = sortedLevels(), T = state.types;
+    main.innerHTML = banner() + `
+      <div class="sec-head"><div><h2>Tabla de porcentajes</h2><p>Filas: categoría del gestor y desde cuántos clientes aplica. Columnas: tipo de producto. Cada celda es el % de comisión sobre lo recuperado.</p></div></div>
+      <div class="panel matrix-wrap">
+        <table class="matrix">
+          <thead><tr><th class="lv">Categoría · desde # clientes</th>${T.map(ty => `<th><input id="tn-${ty.id}" data-tname="${ty.id}" value="${esc(ty.name)}" maxlength="24" aria-label="Nombre del tipo"></th>`).join('')}</tr></thead>
+          <tbody>${L.map((l,i) => `<tr style="--lc:${LCOL[i]}">
+            <th class="lv"><div class="lvcell"><span class="dot"></span><input class="txt" id="ln-${l.id}" data-lname="${l.id}" value="${esc(l.name)}" maxlength="24" aria-label="Nombre de la categoría"><label class="min">desde <input class="num" id="lm-${l.id}" data-lmin="${l.id}" inputmode="numeric" value="${l.min}" aria-label="Clientes mínimos"></label></div></th>
+            ${T.map(ty => { const v = Number(state.rates?.[l.id]?.[ty.id])||0; return `<td><label class="cell" style="--heat:${Math.min(60, v*7)}%"><input id="r-${l.id}-${ty.id}" data-rate="${l.id}|${ty.id}" inputmode="decimal" value="${v}" aria-label="% ${esc(l.name)} ${esc(ty.name)}"><span>%</span></label></td>`; }).join('')}
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <p class="hint">Rangos actuales: ${L.map((l,i) => `<b>${esc(l.name)}</b> ${l.min}${i>0 ? ' a ' + (L[i-1].min - 1) : ' o más'}`).join(' · ')} clientes.</p>`;
+  }
+
+  function renderProductos(){
+    const T = state.types;
+    const typeOpts = sel => T.map(t => `<option value="${t.id}" ${t.id===sel?'selected':''}>${esc(t.name)}</option>`).join('');
+    const uses = id => state.gestores.reduce((a,g) => a + g.lines.filter(l => l.productId === id).length, 0);
+    main.innerHTML = banner() + `
+      <div class="sec-head"><div><h2>Productos</h2><p>Cada producto pertenece a un tipo de la tabla de %. Así se sabe qué columna usar.</p></div></div>
+      <form class="panel addform" id="addForm">
+        <label class="field"><span>Nuevo producto</span><input class="txt" id="newName" placeholder="Ej. s28" maxlength="40" required></label>
+        <label class="field"><span>Tipo</span><select class="sel" id="newType">${typeOpts(T[0]?.id)}</select></label>
+        <button class="btn primary" type="submit">Agregar</button>
+      </form>
+      <div class="panel plist">${state.products.map(p => { const u = uses(p.id); return `
+        <div class="item">
+          <input class="txt" id="pn-${p.id}" data-pname="${p.id}" value="${esc(p.name)}" maxlength="40" aria-label="Nombre del producto">
+          <select class="sel" id="pt-${p.id}" data-ptype="${p.id}" aria-label="Tipo">${typeOpts(p.typeId)}</select>
+          <span class="used">${u ? 'En ' + u + ' registro' + (u===1?'':'s') : 'Sin uso'}</span>
+          ${u ? '<span></span>' : confirmKey === 'p:'+p.id
+            ? `<span class="confirm"><button class="btn small danger solid" data-delp="${p.id}">Borrar</button><button class="btn small" data-act="noconfirm">No</button></span>`
+            : `<button class="btn small danger" data-askp="${p.id}">Borrar</button>`}
+        </div>`; }).join('')}</div>
+      <div class="sec-head" style="margin-top:28px"><div><h2>Respaldo</h2><p>Copia tus datos para pasarlos a otro teléfono o a la app instalada, o pega un respaldo para cargarlo aquí.</p></div></div>
+      <div class="panel backup">
+        <div class="tools"><button class="btn" data-act="export">Copiar mis datos</button><button class="btn" data-act="showimport">Pegar un respaldo</button></div>
+        <div id="bkArea"></div>
+      </div>`;
+  }
+  function showExport(){
+    const area = $('#bkArea'); if (!area) return;
+    const txt = JSON.stringify(state);
+    area.innerHTML = `<textarea class="bk" id="bkOut" readonly aria-label="Respaldo"></textarea><p class="bkmsg" id="bkMsg">Copia todo este texto y pégalo en la otra app, en “Pegar un respaldo”.</p>`;
+    const ta = $('#bkOut'); ta.value = txt; ta.focus(); ta.select();
+    try { navigator.clipboard.writeText(txt).then(() => { $('#bkMsg').textContent = 'Copiado. Ahora pégalo en la otra app, en “Pegar un respaldo”.'; }, () => {}); } catch(e){}
+  }
+  function showImport(){
+    const area = $('#bkArea'); if (!area) return;
+    area.innerHTML = `<textarea class="bk" id="bkIn" placeholder="Pega aquí el respaldo" aria-label="Pegar respaldo"></textarea>
+      <div class="tools"><button class="btn primary" data-act="doimport">Cargar respaldo</button><span class="bkmsg" id="bkMsg">Esto reemplaza los datos que hay ahora en esta app.</span></div>`;
+    $('#bkIn').focus();
+  }
+  function doImport(){
+    let s = null;
+    try { s = JSON.parse($('#bkIn').value.trim()); } catch(e){ s = null; }
+    if (!valid(s)){ $('#bkMsg').textContent = 'Ese texto no es un respaldo válido. Cópialo completo e inténtalo otra vez.'; return; }
+    s.imported = false; state = s; save(); setView('gestores');
+  }
+
+  // ---------- Eventos ----------
+  const G = id => state.gestores.find(g => g.id === id);
+  main.addEventListener('input', e => {
+    const el = e.target, d = el.dataset;
+    if (d.lamt){ const [gid,lid] = d.lamt.split(':'); const l = G(gid)?.lines.find(x => x.id === lid); if (!l) return; l.amount = round2(parseAmt(el.value)); refresh(); save(); }
+    else if (d.gclients){ const g = G(d.gclients); const v = Math.floor(parseAmt(el.value)); g.clients = v > 0 ? v : null; refresh(); save(); }
+    else if (d.gname){ G(d.gname).name = el.value; refresh(); save(); }
+    else if (d.rate){ const [lid,tid] = d.rate.split('|'); state.rates[lid] = state.rates[lid] || {}; const v = Math.max(0, Math.min(100, parseAmt(el.value))); state.rates[lid][tid] = round2(v); el.closest('.cell').style.setProperty('--heat', Math.min(60, v*7) + '%'); updateHeader(); save(); }
+    else if (d.lname){ state.levels.find(l => l.id === d.lname).name = el.value; save(); }
+    else if (d.lmin){ state.levels.find(l => l.id === d.lmin).min = Math.max(0, Math.floor(parseAmt(el.value))); updateHeader(); save(); }
+    else if (d.tname){ state.types.find(t => t.id === d.tname).name = el.value; save(); }
+    else if (d.pname){ state.products.find(p => p.id === d.pname).name = el.value; save(); }
+  });
+  main.addEventListener('change', e => {
+    const el = e.target, d = el.dataset;
+    if (d.glevel){ G(d.glevel).levelId = el.value; refresh(); save(); }
+    else if (d.lprod){ const [gid,lid] = d.lprod.split(':'); G(gid).lines.find(x => x.id === lid).productId = el.value; refresh(); save(); }
+    else if (d.ptype){ state.products.find(p => p.id === d.ptype).typeId = el.value; updateHeader(); save(); }
+    else if (d.lmin){ renderTabla(); }
+  });
+  main.addEventListener('focusin', e => { if (e.target.dataset.lamt){ const v = parseAmt(e.target.value); e.target.value = v ? String(v) : ''; e.target.select(); } });
+  main.addEventListener('focusout', e => {
+    const el = e.target, d = el.dataset;
+    if (d.lamt){ const v = parseAmt(el.value); el.value = v ? num.format(v) : ''; }
+    if (d.gname && !el.value.trim()){ G(d.gname).name = 'Gestor sin nombre'; el.value = 'Gestor sin nombre'; refresh(); save(); }
+    if (d.pname && !el.value.trim()){ const p = state.products.find(x => x.id === d.pname); p.name = 'Producto'; el.value = p.name; save(); }
+    if (d.lname && !el.value.trim()){ const l = state.levels.find(x => x.id === d.lname); l.name = 'Categoría'; el.value = l.name; save(); }
+    if (d.tname && !el.value.trim()){ const t = state.types.find(x => x.id === d.tname); t.name = 'Tipo'; el.value = t.name; save(); }
+    setTimeout(() => { if (pendingRemote && !isEditing()){ pendingRemote = false; render(); } }, 0);
+  });
+  main.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.dataset.lamt){
+      e.preventDefault();
+      const all = [...main.querySelectorAll('[data-lamt]')], i = all.indexOf(e.target);
+      if (all[i+1]) all[i+1].focus(); else e.target.blur();
+    }
+  });
+  main.addEventListener('submit', e => {
+    if (e.target.id !== 'addForm') return;
+    e.preventDefault();
+    const name = $('#newName').value.trim(); if (!name) return;
+    const typeId = $('#newType').value;
+    state.products.push({id: uid(), name, typeId});
+    save(); renderProductos(); $('#newType').value = typeId; $('#newName').focus();
+  });
+  main.addEventListener('click', e => {
+    const b = e.target.closest('button, [data-jump]'); if (!b) return;
+    const d = b.dataset;
+    if (d.jump){ const c = document.getElementById('g-'+d.jump); if (c){ c.scrollIntoView({behavior:'smooth', block:'start'}); const f = c.querySelector('[data-lamt]'); if (f) setTimeout(() => f.focus({preventScroll:true}), 350); } return; }
+    if (d.act === 'create'){ state = baseConfig(); save(); render(); }
+    else if (d.act === 'hidebanner'){ state.imported = false; save(); render(); }
+    else if (d.act === 'noconfirm'){ confirmKey = null; render(); }
+    else if (d.act === 'export'){ showExport(); }
+    else if (d.act === 'showimport'){ showImport(); }
+    else if (d.act === 'doimport'){ doImport(); }
+    else if (d.act === 'addg'){
+      const L = sortedLevels();
+      const g = {id: uid(), name:'Nuevo gestor', clients:null, levelId: L[L.length-1].id, lines: state.products.length ? [{id: uid(), productId: state.products[0].id, amount: 0}] : []};
+      state.gestores.unshift(g); save(); renderGestores();
+      const n = document.getElementById('gn-'+g.id); if (n){ n.focus(); n.select(); }
+    }
+    else if (d.addl){ const g = G(d.addl); if (!state.products.length){ setView('productos'); return; } const used = new Set(g.lines.map(l => l.productId)); const p = state.products.find(x => !used.has(x.id)) || state.products[0]; const l = {id: uid(), productId: p.id, amount: 0}; g.lines.push(l); save(); renderGestores(); const f = document.getElementById('la-'+l.id); if (f) f.focus(); }
+    else if (d.dell){ const [gid,lid] = d.dell.split(':'); const g = G(gid); g.lines = g.lines.filter(x => x.id !== lid); save(); renderGestores(); }
+    else if (d.askg){ confirmKey = 'g:'+d.askg; renderGestores(); }
+    else if (d.delg){ state.gestores = state.gestores.filter(g => g.id !== d.delg); confirmKey = null; save(); renderGestores(); }
+    else if (d.askp){ confirmKey = 'p:'+d.askp; renderProductos(); }
+    else if (d.delp){ state.products = state.products.filter(p => p.id !== d.delp); confirmKey = null; save(); renderProductos(); }
+  });
+
+  function isEditing(){ const a = document.activeElement; return a && main.contains(a) && /INPUT|SELECT/.test(a.tagName); }
+  const valid = s => s && Array.isArray(s.levels) && Array.isArray(s.types) && Array.isArray(s.products) && Array.isArray(s.gestores) && s.rates;
+
+  // ---------- Arranque ----------
+  function startLocal(){
+    mode = 'local';
+    try { const raw = localStorage.getItem('com_state2'); const s = raw ? JSON.parse(raw) : null; state = valid(s) ? s : null; } catch(e){ state = null; }
+    loaded = true; setSync('local','Guardado en este equipo'); render();
+  }
+  async function start(){
+    setView(view);
+    let use = null;
+    try { use = window.claude && window.claude.use ? await window.claude.use('db') : null; } catch(e){ use = null; }
+    if (!use){ startLocal(); return; }
+    db = use; mode = 'db'; ref = db.doc('app/estado');
+    const timer = setTimeout(() => { if (!loaded) setSync('error','Sin conexión todavía'); }, 10000);
+    ref.onSnapshot(snap => {
+      if (snap.metadata.hasPendingWrites) return;
+      if (!snap.metadata.fromCache){ clearTimeout(timer); if (!saving && !saveTimer) setSync('ok','Guardado'); }
+      const data = snap.exists ? snap.data() : null;
+      if (!data && snap.metadata.fromCache) return;
+      const body = data ? JSON.stringify(data) : '';
+      if (loaded && body && (body === lastSaved || body === JSON.stringify(state))) return;
+      state = valid(data) ? JSON.parse(body) : null; lastSaved = body;
+      const first = !loaded; loaded = true;
+      if (!first && isEditing()){ pendingRemote = true; updateHeader(); return; }
+      render();
+    }, () => { clearTimeout(timer); if (!loaded) startLocal(); else setSync('error','Se perdió la conexión'); });
+  }
+  start();
+})();
+</script>
+
+<script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');</script>
+</body>
+</html>

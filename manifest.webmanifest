@@ -1,0 +1,14 @@
+{
+  "name": "Calculadora de Comisiones",
+  "short_name": "Comisiones",
+  "lang": "es-MX",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF2F1",
+  "theme_color": "#0B7A5E",
+  "icons": [
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
