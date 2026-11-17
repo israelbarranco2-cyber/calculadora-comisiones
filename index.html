@@ -10,10 +10,10 @@
 <style>body{margin:0}</style>
 </head>
 <body>
-<title>Calculadora de Comisiones</title>
+<title>Comisiones y Préstamos</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Comisiones">
+<meta name="apple-mobile-web-app-title" content="Calculadora">
 <meta name="theme-color" content="#0B7A5E">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -185,10 +185,55 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
 .emptystate p{margin:0;color:var(--muted)}
 .empty-g{padding:14px 16px;color:var(--muted);font-size:14px}
 
+/* Préstamos */
+.loan{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:20px;align-items:start}
+.lcol{display:grid;gap:16px;min-width:0}
+.lout{position:sticky;top:calc(env(safe-area-inset-top,0px) + 78px);display:grid;gap:14px;min-width:0}
+.lform{padding:16px;display:grid;gap:14px}
+.lgrid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:12px}
+.lgrid .txt,.lgrid .sel,.lgrid .num{width:100%}
+.lgrid .field,.lset .field,.lprow .field{align-content:start}
+.lsub{font-family:var(--f-display);font-weight:600;font-size:15px;border-top:1px solid var(--line);padding-top:14px;margin:0}
+.field small{font-size:12px;color:var(--muted);font-weight:600}
+.pctin{position:relative;min-width:0}
+.pctin::after{content:"%";position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:700;pointer-events:none}
+.pctin input{width:100%;text-align:right;padding-right:28px}
+.hero .sub{color:var(--hero-muted);font-size:14px;margin:-10px 0 16px;font-weight:600}
+.warn{margin-top:12px;background:color-mix(in srgb,var(--danger) 22%,transparent);border:1px solid color-mix(in srgb,var(--danger) 50%,transparent);color:#FFD9D5;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600}
+.steps{overflow:hidden}
+.shead{padding:10px 16px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--sunk);border-top:1px solid var(--line)}
+.shead:first-child{border-top:0}
+.step{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:2px 10px;padding:10px 16px;border-top:1px solid var(--line);align-items:baseline}
+.step .k{width:22px;height:22px;border-radius:7px;background:var(--accent-soft);color:var(--accent);font-weight:800;font-size:12px;display:grid;place-items:center;align-self:start}
+.step .l{font-weight:700;min-width:0}
+.step .v{font-weight:800;text-align:right;white-space:nowrap}
+.step .f{grid-column:2 / -1;font-size:13px;color:var(--muted)}
+.step.total{background:var(--accent-soft)}
+.step.total .v{color:var(--accent);font-size:17px}
+.saved .srow{display:grid;grid-template-columns:minmax(0,1fr) auto 32px;gap:10px;align-items:center;padding:10px 16px;border-top:1px solid var(--line)}
+.saved .shead{border-top:0}
+.sbtn{border:0;background:transparent;text-align:left;cursor:pointer;padding:0;min-width:0;display:grid}
+.sbtn b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sbtn small,.sv small{color:var(--muted);font-size:12px;font-weight:600}
+.sv{text-align:right;font-weight:800}
+.sv small{display:block}
+.lplist .lprow{display:grid;grid-template-columns:minmax(0,1fr) 140px 90px 120px 130px 90px;gap:10px;align-items:center;padding:10px 16px;border-top:1px solid var(--line)}
+.lplist .lprow:first-child{border-top:0}
+.lplist .lphead{font-size:11px;color:var(--muted);font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:var(--sunk);padding-block:8px}
+.lprow .txt,.lprow .sel,.lprow .num{width:100%}
+.lprow .num{text-align:right}
+.lprow .mlbl{display:none}
+.lpadd{padding:10px 16px;border-top:1px solid var(--line)}
+.lset{padding:16px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.lset .num,.lset .sel{width:100%}
+.lset .num{text-align:right}
+
 .bottom{display:none}
 @media (max-width:1080px){
-  .calc{grid-template-columns:minmax(0,1fr)}
+  .calc,.loan{grid-template-columns:minmax(0,1fr)}
   .summary{position:static;order:-1}
+  .lout{position:static}
+  .lset{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (min-width:761px) and (max-width:1080px){
   .summary{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
@@ -202,7 +247,14 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
   .gfoot{grid-template-columns:1fr 1fr}
   .gfoot .third{grid-column:1 / -1}
   .addform,.plist .item{grid-template-columns:minmax(0,1fr)}
-  .bottom{display:grid;grid-template-columns:repeat(3,1fr);position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);
+  .lgrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .lgrid .wide{grid-column:1 / -1}
+  .lplist .lphead{display:none}
+  .lplist .lprow{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"n n" "k t" "r s" "x x"}
+  .lprow .a-n{grid-area:n}.lprow .a-k{grid-area:k}.lprow .a-t{grid-area:t}.lprow .a-r{grid-area:r}.lprow .a-s{grid-area:s}.lprow .a-x{grid-area:x;justify-self:end}
+  .lprow .mlbl{display:block}
+  .lset{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .bottom{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);
     padding-bottom:max(8px,env(safe-area-inset-bottom,0px));padding-top:6px;padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
   .bottom .tab{flex-direction:column;gap:2px;font-size:12px;padding:6px 4px;justify-content:center}
   .bottom .tab svg{width:22px;height:22px}
@@ -215,12 +267,13 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
   <div class="wrap">
     <div class="brand">
       <div class="mark">%</div>
-      <h1>Calculadora de Comisiones</h1>
+      <h1>Comisiones y Préstamos</h1>
     </div>
     <nav class="tabs" role="tablist" aria-label="Secciones">
       <button class="tab" role="tab" data-view="gestores" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M16 4a4 4 0 0 1 0 8M22 21c0-3-1.5-5-4-5.6"/></svg>Gestores</button>
       <button class="tab" role="tab" data-view="tabla" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Tabla de %</button>
       <button class="tab" role="tab" data-view="productos" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Productos</button>
+      <button class="tab" role="tab" data-view="prestamos" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4M18 10v4"/></svg>Préstamos</button>
     </nav>
     <div class="sync" id="sync" data-s="ok"><i></i><span class="txtlbl" id="syncTxt" hidden>Cargando…</span></div>
   </div>
@@ -273,12 +326,38 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
         {id:'pr-s20', name:'s20', typeId:'ty-s2024'},
         {id:'pr-s24', name:'s24', typeId:'ty-s2024'}
       ],
-      gestores:[]
+      gestores:[],
+      loan: baseLoan()
     };
   }
 
+  // Préstamos: catálogo editable, ajustes y el cálculo en curso
+  function baseLoan(){
+    return {
+      settings:{iva:16, diasMes:30, semanasMes:4, maxPend:4, centavos:'cortar'},
+      products:[
+        {id:'lp-s12', name:'S/12', kind:'semanal', n:12, rate:18, seguro:100},
+        {id:'lp-s16', name:'S/16', kind:'semanal', n:16, rate:18, seguro:100},
+        {id:'lp-s20', name:'S/20', kind:'semanal', n:20, rate:18, seguro:100},
+        {id:'lp-s24', name:'S/24', kind:'semanal', n:24, rate:18, seguro:100}
+      ],
+      calc:{cliente:'', productId:'lp-s12', capital:5000, pendN:0, pendAmt:0, seguro:100},
+      saved:[]
+    };
+  }
+  function migrate(s){
+    if (!s) return s;
+    const b = baseLoan();
+    if (!s.loan || typeof s.loan !== 'object') s.loan = b;
+    s.loan.settings = Object.assign({}, b.settings, s.loan.settings || {});
+    if (!Array.isArray(s.loan.products)) s.loan.products = b.products;
+    s.loan.calc = Object.assign({}, b.calc, s.loan.calc || {});
+    if (!Array.isArray(s.loan.saved)) s.loan.saved = [];
+    return s;
+  }
+
   let state = null, loaded = false, view = 'gestores';
-  try { const v = localStorage.getItem('com_view2'); if (['gestores','tabla','productos'].includes(v)) view = v; } catch(e){}
+  try { const v = localStorage.getItem('com_view2'); if (['gestores','tabla','productos','prestamos'].includes(v)) view = v; } catch(e){}
   let db = null, ref = null, mode = 'local', pendingRemote = false;
 
   $('#bottomNav').innerHTML = document.querySelector('.tabs').innerHTML;
@@ -350,6 +429,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
     if (!state){ renderEmpty(); return; }
     if (view === 'gestores') renderGestores();
     else if (view === 'tabla') renderTabla();
+    else if (view === 'prestamos') renderPrestamos();
     else renderProductos();
   }
   function updateHeader(){
@@ -363,9 +443,9 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
   function renderEmpty(){
     main.innerHTML = `<div class="emptystate">
       <div class="mark" style="width:56px;height:56px;font-size:26px;border-radius:16px">%</div>
-      <h2>Empieza con tu tabla de comisiones</h2>
-      <p>Se cargan las 4 categorías (Máster, Senior, Junior y Mantenido), los 5 tipos de producto y sus porcentajes. Después agregas a tus gestores.</p>
-      <button class="btn primary" data-act="create">Cargar tabla base</button>
+      <h2>Empieza con la configuración base</h2>
+      <p>Se cargan las 4 categorías de comisión (Máster, Senior, Junior y Mantenido) con sus porcentajes, y los productos de préstamo con su interés. Todo lo puedes editar después.</p>
+      <button class="btn primary" data-act="create">Cargar configuración base</button>
     </div>`;
   }
 
@@ -534,8 +614,158 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
     let s = null;
     try { s = JSON.parse($('#bkIn').value.trim()); } catch(e){ s = null; }
     if (!valid(s)){ $('#bkMsg').textContent = 'Ese texto no es un respaldo válido. Cópialo completo e inténtalo otra vez.'; return; }
-    s.imported = false; state = s; save(); setView('gestores');
+    s.imported = false; state = migrate(s); save(); setView('gestores');
   }
+
+  // ---------- Préstamos ----------
+  const KINDS = {
+    diario:   {label:'Diario',    one:'día',      many:'días',      adj:'diario'},
+    semanal:  {label:'Semanal',   one:'semana',   many:'semanas',   adj:'semanal'},
+    quincenal:{label:'Quincenal', one:'quincena', many:'quincenas', adj:'quincenal'},
+    mensual:  {label:'Mensual',   one:'mes',      many:'meses',     adj:'mensual'}
+  };
+  const pct4 = v => (Number(v)||0).toLocaleString('es-MX',{maximumFractionDigits:4}) + '%';
+  const LP = id => state.loan.products.find(p => p.id === id);
+  const kindOf = p => KINDS[p?.kind] || KINDS.semanal;
+  function divisor(p){
+    const s = state.loan.settings;
+    if (p.kind === 'diario') return Number(s.diasMes) || 30;
+    if (p.kind === 'semanal') return Number(s.semanasMes) || 4;
+    if (p.kind === 'quincenal') return 2;
+    return 1;
+  }
+  function calcLoan(){
+    const L = state.loan, s = L.settings, c = L.calc;
+    const p = LP(c.productId) || L.products[0];
+    if (!p) return null;
+    const k = kindOf(p), n = Math.max(1, Math.floor(Number(p.n) || 1)), div = divisor(p);
+    const rate = Number(p.rate) || 0, per = rate / div, tot = per * n;
+    const cap = Number(c.capital) || 0, ivaP = Number(s.iva) || 0;
+    const interes = round2(cap * tot / 100), iva = round2(interes * ivaP / 100), deuda = round2(cap + interes + iva);
+    const raw = deuda / n;
+    const pago = s.centavos === 'redondear' ? round2(raw) : Math.floor(raw * 100 + 1e-6) / 100;
+    const sum = round2(pago * n), dif = round2(deuda - sum);
+    const maxP = Math.max(0, Math.floor(Number(s.maxPend) || 0));
+    const want = Math.max(0, Math.floor(Number(c.pendN) || 0)), pendN = Math.min(maxP, want);
+    const pendAmt = Number(c.pendAmt) || 0, pend = round2(pendN * pendAmt), seg = Number(c.seguro) || 0;
+    const entrega = round2(cap - pend - seg);
+    return {p, k, n, div, rate, per, tot, cap, ivaP, interes, iva, deuda, pago, sum, dif, want, pendN, maxP, pendAmt, pend, seg, entrega};
+  }
+  const loanProdOpts = sel => state.loan.products.map(p => `<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(p.name)} · ${Number(p.n)||1} ${kindOf(p).many}</option>`).join('');
+  const kindOpts = sel => Object.entries(KINDS).map(([k,v]) => `<option value="${k}" ${k===sel?'selected':''}>${v.label}</option>`).join('');
+  const step = (k, l, f, v, cls='') => `<div class="step ${cls}"><span class="k">${k}</span><span class="l">${l}</span><span class="v">${v}</span>${f ? `<span class="f">${f}</span>` : ''}</div>`;
+
+  function loanOutHTML(r){
+    if (!r) return `<div class="panel empty-g">Agrega un producto de préstamo abajo para empezar a calcular.</div>`;
+    const {p, k, n} = r, s = state.loan.settings;
+    const warns = [];
+    if (r.want > r.maxP) warns.push(`Solo se pueden descontar hasta ${r.maxP} periodos pendientes; se tomaron ${r.maxP}.`);
+    if (r.entrega < 0) warns.push('Lo que se descuenta es mayor que el capital: no queda nada por entregar.');
+    if (!r.cap) warns.push('Escribe el capital que solicita el cliente.');
+    const perTxt = p.kind === 'mensual'
+      ? `Se cobra el ${pct4(r.rate)} cada mes`
+      : `${pct4(r.rate)} mensual ÷ ${r.div} ${p.kind === 'diario' ? 'días' : p.kind === 'semanal' ? 'semanas' : 'quincenas'} del mes`;
+    const pagoNote = r.dif
+      ? `${money.format(r.deuda)} ÷ ${n} = ${(r.deuda / n).toLocaleString('es-MX',{minimumFractionDigits:4,maximumFractionDigits:4})}… ${s.centavos === 'redondear' ? 'redondeado' : 'se cortan los centavos'}. Los ${n} pagos suman ${money.format(r.sum)} (${r.dif > 0 ? 'faltan' : 'sobran'} ${money.format(Math.abs(r.dif))}).`
+      : `${money.format(r.deuda)} ÷ ${n} ${k.many}`;
+    return `<div class="hero">
+      <div class="lbl">Pago ${k.adj}</div>
+      <div class="big">${money.format(r.pago)}</div>
+      <div class="sub">Durante ${n} ${n === 1 ? k.one : k.many} · ${esc(p.name)}${state.loan.calc.cliente ? ' · ' + esc(state.loan.calc.cliente) : ''}</div>
+      <div class="row">
+        <div><span>Importe del préstamo</span><strong>${money.format(r.deuda)}</strong></div>
+        <div><span>Se le entrega</span><strong>${money.format(r.entrega)}</strong></div>
+      </div>
+      ${warns.map(w => `<div class="warn">${w}</div>`).join('')}
+    </div>
+    <div class="panel steps">
+      <div class="shead">Lo que debe el cliente</div>
+      ${step(1, `Interés por ${k.one}`, perTxt, pct4(r.per))}
+      ${step(2, 'Interés total', `${pct4(r.per)} × ${n} ${n === 1 ? k.one : k.many}`, pct4(r.tot))}
+      ${step(3, 'Interés', `${money.format(r.cap)} de capital × ${pct4(r.tot)}`, money.format(r.interes))}
+      ${step(4, 'IVA del interés', `${money.format(r.interes)} × ${pct4(r.ivaP)}`, money.format(r.iva))}
+      ${step(5, 'Importe del préstamo', `${money.format(r.cap)} capital + ${money.format(r.interes)} interés + ${money.format(r.iva)} IVA`, money.format(r.deuda), 'total')}
+      ${step(6, `Pago ${k.adj}`, pagoNote, money.format(r.pago), 'total')}
+      <div class="shead">Lo que se le entrega</div>
+      ${step(7, 'Pagos pendientes', r.pendN ? `${r.pendN} ${r.pendN === 1 ? 'periodo' : 'periodos'} × ${money.format(r.pendAmt)} del crédito actual` : 'Sin pagos pendientes por descontar', '−' + money.format(r.pend))}
+      ${step(8, 'Seguro', '', '−' + money.format(r.seg))}
+      ${step(9, 'Se le entrega', `${money.format(r.cap)} − ${money.format(r.pend)} − ${money.format(r.seg)}`, money.format(r.entrega), 'total')}
+    </div>`;
+  }
+
+  function savedHTML(){
+    const S = state.loan.saved;
+    if (!S.length) return '';
+    return `<section class="panel saved">
+      <div class="shead">Cálculos guardados · toca uno para volver a abrirlo</div>
+      ${S.map(x => `<div class="srow">
+        <button class="sbtn" data-loadcalc="${x.id}"><b>${esc(x.cliente || 'Sin nombre')}</b><small>${esc(x.productName)} · ${money.format(x.capital)} · ${esc(new Date(x.at).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'}))}</small></button>
+        <span class="sv">${money.format(x.pago)}<small>entrega ${money.format(x.entrega)}</small></span>
+        <button class="icon-btn" data-delcalc="${x.id}" aria-label="Borrar cálculo" title="Borrar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>`).join('')}
+    </section>`;
+  }
+
+  function renderPrestamos(){
+    const L = state.loan, c = L.calc, s = L.settings;
+    const fmt = v => Number(v) ? num.format(v) : '';
+    main.innerHTML = `
+      <div class="sec-head">
+        <div><h2>Préstamos</h2><p>Elige el producto y escribe el capital. Abajo ves cada paso del cálculo: interés, IVA, importe del préstamo, pago por periodo y lo que se le entrega al cliente.</p></div>
+      </div>
+      <div class="loan">
+        <div class="lcol">
+          <section class="panel lform">
+            <div class="lgrid">
+              <label class="field wide"><span>Cliente</span><input class="txt" id="lcCli" data-lc="cliente" value="${esc(c.cliente)}" maxlength="60" placeholder="Nombre (opcional)" autocomplete="off"></label>
+              <label class="field"><span>Producto</span><select class="sel" id="lcProd" data-lc="productId">${loanProdOpts(c.productId)}</select></label>
+              <label class="field"><span>Capital solicitado</span><div class="money"><input id="lcCap" data-lc="capital" data-money inputmode="decimal" autocomplete="off" placeholder="0.00" value="${fmt(c.capital)}"></div></label>
+            </div>
+            <h3 class="lsub">Descuentos al entregar</h3>
+            <div class="lgrid">
+              <label class="field"><span>Pagos pendientes</span><input class="num" id="lcPn" data-lc="pendN" inputmode="numeric" autocomplete="off" placeholder="0" value="${Number(c.pendN) || ''}" style="text-align:right"><small id="lcPnHint">Periodos del crédito actual, máximo ${s.maxPend}</small></label>
+              <label class="field"><span>Importe de cada pago</span><div class="money"><input id="lcPa" data-lc="pendAmt" data-money inputmode="decimal" autocomplete="off" placeholder="0.00" value="${fmt(c.pendAmt)}"></div></label>
+              <label class="field"><span>Seguro</span><div class="money"><input id="lcSeg" data-lc="seguro" data-money inputmode="decimal" autocomplete="off" placeholder="0.00" value="${fmt(c.seguro)}"></div><small>Se toma del producto; puedes cambiarlo</small></label>
+            </div>
+            <div class="tools"><button class="btn primary" data-act="savecalc">Guardar cálculo</button><button class="btn" data-act="newcalc">Nuevo cálculo</button><span class="bkmsg" id="lcMsg"></span></div>
+          </section>
+          ${savedHTML()}
+        </div>
+        <aside class="lout" id="loanOut">${loanOutHTML(calcLoan())}</aside>
+      </div>
+
+      <div class="sec-head" style="margin-top:28px"><div><h2>Productos de préstamo</h2><p>Cada producto tiene su tipo (diario, semanal, quincenal o mensual), su plazo, su % de interés mensual y el seguro que se descuenta. Los cambios se guardan solos.</p></div></div>
+      <div class="panel lplist">
+        <div class="lprow lphead"><span>Producto</span><span>Tipo</span><span style="text-align:right">Plazo</span><span style="text-align:right">% mensual</span><span style="text-align:right">Seguro</span><span></span></div>
+        ${L.products.map(p => `<div class="lprow">
+          <label class="field a-n"><span class="mlbl">Producto</span><input class="txt" id="lpn-${p.id}" data-lp="${p.id}|name" value="${esc(p.name)}" maxlength="30" aria-label="Nombre del producto"></label>
+          <label class="field a-k"><span class="mlbl">Tipo</span><select class="sel" data-lp="${p.id}|kind" aria-label="Tipo">${kindOpts(p.kind)}</select></label>
+          <label class="field a-t"><span class="mlbl">Plazo (${kindOf(p).many})</span><input class="num" data-lp="${p.id}|n" inputmode="numeric" value="${Number(p.n) || 1}" aria-label="Plazo"></label>
+          <label class="field a-r"><span class="mlbl">% mensual</span><div class="pctin"><input class="num" data-lp="${p.id}|rate" inputmode="decimal" value="${Number(p.rate) || 0}" aria-label="% de interés mensual"></div></label>
+          <label class="field a-s"><span class="mlbl">Seguro</span><div class="money"><input data-lp="${p.id}|seguro" data-money inputmode="decimal" value="${fmt(p.seguro)}" placeholder="0.00" aria-label="Seguro"></div></label>
+          <span class="a-x">${confirmKey === 'lp:'+p.id
+            ? `<span class="confirm"><button class="btn small danger solid" data-dellp="${p.id}">Borrar</button><button class="btn small" data-act="noconfirm">No</button></span>`
+            : `<button class="btn small danger" data-asklp="${p.id}">Borrar</button>`}</span>
+        </div>`).join('')}
+        <div class="lpadd"><button class="btn small ghost" data-act="addlp">+ Agregar producto</button></div>
+      </div>
+
+      <div class="sec-head" style="margin-top:28px"><div><h2>Ajustes del cálculo</h2><p>Cómo se convierte el % mensual al periodo del producto y cómo se manejan los centavos del pago.</p></div></div>
+      <div class="panel lset">
+        <label class="field"><span>IVA</span><div class="pctin"><input class="num" data-ls="iva" inputmode="decimal" value="${Number(s.iva) || 0}"></div></label>
+        <label class="field"><span>Semanas por mes</span><input class="num" data-ls="semanasMes" inputmode="decimal" value="${Number(s.semanasMes) || 4}"><small>Semanales: % ÷ esto</small></label>
+        <label class="field"><span>Días por mes</span><input class="num" data-ls="diasMes" inputmode="decimal" value="${Number(s.diasMes) || 30}"><small>Diarios: % ÷ esto</small></label>
+        <label class="field"><span>Máx. pagos pendientes</span><input class="num" data-ls="maxPend" inputmode="numeric" value="${Number(s.maxPend) || 0}"></label>
+        <label class="field"><span>Centavos del pago</span><select class="sel" data-ls="centavos"><option value="cortar" ${s.centavos !== 'redondear' ? 'selected' : ''}>Cortar (677.66)</option><option value="redondear" ${s.centavos === 'redondear' ? 'selected' : ''}>Redondear (677.67)</option></select></label>
+      </div>
+      <p class="hint">Quincenales: % ÷ 2. Mensuales: el % se cobra completo cada mes.</p>`;
+  }
+  function refreshLoan(){
+    const o = $('#loanOut'); if (o) o.innerHTML = loanOutHTML(calcLoan());
+    const h = $('#lcPnHint'); if (h) h.textContent = `Periodos del crédito actual, máximo ${state.loan.settings.maxPend}`;
+    const m = $('#lcMsg'); if (m) m.textContent = '';
+  }
+  function refreshProdOpts(){ const s = $('#lcProd'); if (s) s.innerHTML = loanProdOpts(state.loan.calc.productId); }
 
   // ---------- Eventos ----------
   const G = id => state.gestores.find(g => g.id === id);
@@ -549,6 +779,22 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
     else if (d.lmin){ state.levels.find(l => l.id === d.lmin).min = Math.max(0, Math.floor(parseAmt(el.value))); updateHeader(); save(); }
     else if (d.tname){ state.types.find(t => t.id === d.tname).name = el.value; save(); }
     else if (d.pname){ state.products.find(p => p.id === d.pname).name = el.value; save(); }
+    else if (d.lc && el.tagName !== 'SELECT'){
+      const c = state.loan.calc, f = d.lc;
+      if (f === 'cliente') c.cliente = el.value;
+      else if (f === 'pendN') c.pendN = Math.max(0, Math.floor(parseAmt(el.value)));
+      else c[f] = round2(Math.max(0, parseAmt(el.value)));
+      refreshLoan(); save();
+    }
+    else if (d.lp && el.tagName !== 'SELECT'){
+      const [id, f] = d.lp.split('|'), p = LP(id); if (!p) return;
+      if (f === 'name') p.name = el.value;
+      else if (f === 'n') p.n = Math.max(1, Math.floor(parseAmt(el.value)) || 1);
+      else p[f] = round2(Math.max(0, parseAmt(el.value)));
+      if (f === 'seguro' && state.loan.calc.productId === id){ state.loan.calc.seguro = p.seguro; const si = $('#lcSeg'); if (si) si.value = p.seguro ? num.format(p.seguro) : ''; }
+      refreshProdOpts(); refreshLoan(); save();
+    }
+    else if (d.ls && el.tagName !== 'SELECT'){ state.loan.settings[d.ls] = round2(Math.max(0, parseAmt(el.value))); refreshLoan(); save(); }
   });
   main.addEventListener('change', e => {
     const el = e.target, d = el.dataset;
@@ -556,11 +802,19 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
     else if (d.lprod){ const [gid,lid] = d.lprod.split(':'); G(gid).lines.find(x => x.id === lid).productId = el.value; refresh(); save(); }
     else if (d.ptype){ state.products.find(p => p.id === d.ptype).typeId = el.value; updateHeader(); save(); }
     else if (d.lmin){ renderTabla(); }
-  });
-  main.addEventListener('focusin', e => { if (e.target.dataset.lamt){ const v = parseAmt(e.target.value); e.target.value = v ? String(v) : ''; e.target.select(); } });
+    else if (d.lc === 'productId'){
+      const c = state.loan.calc, p = LP(el.value); c.productId = el.value;
+      if (p){ c.seguro = Number(p.seguro) || 0; const si = $('#lcSeg'); if (si) si.value = c.seguro ? num.format(c.seguro) : ''; }
+      refreshLoan(); save();
+    }
+    else if (d.lp && el.tagName === 'SELECT'){ const p = LP(d.lp.split('|')[0]); if (!p) return; p.kind = el.value; save(); renderPrestamos(); }
+    else if (d.ls === 'centavos'){ state.loan.settings.centavos = el.value; refreshLoan(); save(); }  });
+  const isMoney = el => el.dataset.lamt || el.hasAttribute('data-money');
+  main.addEventListener('focusin', e => { if (isMoney(e.target)){ const v = parseAmt(e.target.value); e.target.value = v ? String(v) : ''; e.target.select(); } });
   main.addEventListener('focusout', e => {
     const el = e.target, d = el.dataset;
-    if (d.lamt){ const v = parseAmt(el.value); el.value = v ? num.format(v) : ''; }
+    if (isMoney(el)){ const v = parseAmt(el.value); el.value = v ? num.format(v) : ''; }
+    if (d.lp && d.lp.endsWith('|name') && !el.value.trim()){ const p = LP(d.lp.split('|')[0]); if (p){ p.name = 'Producto'; el.value = p.name; refreshProdOpts(); refreshLoan(); save(); } }
     if (d.gname && !el.value.trim()){ G(d.gname).name = 'Gestor sin nombre'; el.value = 'Gestor sin nombre'; refresh(); save(); }
     if (d.pname && !el.value.trim()){ const p = state.products.find(x => x.id === d.pname); p.name = 'Producto'; el.value = p.name; save(); }
     if (d.lname && !el.value.trim()){ const l = state.levels.find(x => x.id === d.lname); l.name = 'Categoría'; el.value = l.name; save(); }
@@ -604,6 +858,38 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
     else if (d.delg){ state.gestores = state.gestores.filter(g => g.id !== d.delg); confirmKey = null; save(); renderGestores(); }
     else if (d.askp){ confirmKey = 'p:'+d.askp; renderProductos(); }
     else if (d.delp){ state.products = state.products.filter(p => p.id !== d.delp); confirmKey = null; save(); renderProductos(); }
+    else if (d.act === 'savecalc'){
+      const r = calcLoan(); if (!r) return;
+      const c = state.loan.calc;
+      state.loan.saved.unshift({id: uid(), at: new Date().toISOString(), cliente: c.cliente.trim(), productId: r.p.id, productName: r.p.name, capital: r.cap, pendN: r.pendN, pendAmt: r.pendAmt, seguro: r.seg, deuda: r.deuda, pago: r.pago, entrega: r.entrega});
+      state.loan.saved = state.loan.saved.slice(0, 200);
+      save(); renderPrestamos(); const m = $('#lcMsg'); if (m) m.textContent = 'Guardado en la lista de abajo.';
+    }
+    else if (d.act === 'newcalc'){
+      const c = state.loan.calc, p = LP(c.productId) || state.loan.products[0];
+      Object.assign(c, {cliente:'', capital:0, pendN:0, pendAmt:0, seguro: p ? Number(p.seguro) || 0 : 0});
+      save(); renderPrestamos(); const f = $('#lcCli'); if (f) f.focus();
+    }
+    else if (d.loadcalc){
+      const x = state.loan.saved.find(s => s.id === d.loadcalc); if (!x) return;
+      const c = state.loan.calc;
+      Object.assign(c, {cliente: x.cliente, capital: x.capital, pendN: x.pendN, pendAmt: x.pendAmt, seguro: x.seguro});
+      if (LP(x.productId)) c.productId = x.productId;
+      save(); renderPrestamos(); window.scrollTo({top:0, behavior:'smooth'});
+    }
+    else if (d.delcalc){ state.loan.saved = state.loan.saved.filter(s => s.id !== d.delcalc); save(); renderPrestamos(); }
+    else if (d.act === 'addlp'){
+      const p = {id: uid(), name: 'Nuevo', kind: 'semanal', n: 12, rate: 18, seguro: 100};
+      state.loan.products.push(p); save(); renderPrestamos();
+      const n = document.getElementById('lpn-'+p.id); if (n){ n.focus(); n.select(); }
+    }
+    else if (d.asklp){ confirmKey = 'lp:'+d.asklp; renderPrestamos(); }
+    else if (d.dellp){
+      state.loan.products = state.loan.products.filter(p => p.id !== d.dellp); confirmKey = null;
+      const c = state.loan.calc;
+      if (!LP(c.productId) && state.loan.products[0]){ c.productId = state.loan.products[0].id; c.seguro = Number(state.loan.products[0].seguro) || 0; }
+      save(); renderPrestamos();
+    }
   });
 
   function isEditing(){ const a = document.activeElement; return a && main.contains(a) && /INPUT|SELECT/.test(a.tagName); }
@@ -612,7 +898,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
   // ---------- Arranque ----------
   function startLocal(){
     mode = 'local';
-    try { const raw = localStorage.getItem('com_state2'); const s = raw ? JSON.parse(raw) : null; state = valid(s) ? s : null; } catch(e){ state = null; }
+    try { const raw = localStorage.getItem('com_state2'); const s = raw ? JSON.parse(raw) : null; state = valid(s) ? migrate(s) : null; } catch(e){ state = null; }
     loaded = true; setSync('local','Guardado en este equipo'); render();
   }
   async function start(){
@@ -629,7 +915,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
       if (!data && snap.metadata.fromCache) return;
       const body = data ? JSON.stringify(data) : '';
       if (loaded && body && (body === lastSaved || body === JSON.stringify(state))) return;
-      state = valid(data) ? JSON.parse(body) : null; lastSaved = body;
+      state = valid(data) ? migrate(JSON.parse(body)) : null; lastSaved = body;
       const first = !loaded; loaded = true;
       if (!first && isEditing()){ pendingRemote = true; updateHeader(); return; }
       render();

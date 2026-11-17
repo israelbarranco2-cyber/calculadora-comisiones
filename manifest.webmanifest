@@ -1,6 +1,6 @@
 {
-  "name": "Calculadora de Comisiones",
-  "short_name": "Comisiones",
+  "name": "Comisiones y Préstamos",
+  "short_name": "Calculadora",
   "lang": "es-MX",
   "start_url": "./",
   "scope": "./",
