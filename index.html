@@ -224,7 +224,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
 .lprow .num{text-align:right}
 .lprow .mlbl{display:none}
 .lpadd{padding:10px 16px;border-top:1px solid var(--line)}
-.lset{padding:16px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.lset{padding:16px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .lset .num,.lset .sel{width:100%}
 .lset .num{text-align:right}
 
@@ -334,7 +334,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
   // Préstamos: catálogo editable, ajustes y el cálculo en curso
   function baseLoan(){
     return {
-      settings:{iva:16, diasMes:30, semanasMes:4, maxPend:4, centavos:'cortar'},
+      settings:{iva:16, diasMes:30, semanasMes:4, maxPend:4},
       products:[
         {id:'lp-s12', name:'S/12', kind:'semanal', n:12, rate:18, seguro:100},
         {id:'lp-s16', name:'S/16', kind:'semanal', n:16, rate:18, seguro:100},
@@ -645,7 +645,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
     const raw = deuda / n;
     // Redondear: se ve la cifra después de las milésimas (4º decimal): 5 o más sube un centavo, 4 o menos se queda.
     const cut = Math.floor(raw * 100 + 1e-6) / 100, d4 = Math.floor(raw * 10000 + 1e-6) % 10;
-    const pago = s.centavos === 'redondear' ? round2(cut + (d4 >= 5 ? 0.01 : 0)) : cut;
+    const pago = round2(cut + (d4 >= 5 ? 0.01 : 0));
     const sum = round2(pago * n), dif = round2(deuda - sum);
     const maxP = Math.max(0, Math.floor(Number(s.maxPend) || 0));
     const want = Math.max(0, Math.floor(Number(c.pendN) || 0)), pendN = Math.min(maxP, want);
@@ -667,9 +667,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
     const perTxt = p.kind === 'mensual'
       ? `Se cobra el ${pct4(r.rate)} cada mes`
       : `${pct4(r.rate)} mensual ÷ ${r.div} ${p.kind === 'diario' ? 'días' : p.kind === 'semanal' ? 'semanas' : 'quincenas'} del mes`;
-    const pagoNote = r.dif
-      ? `${money.format(r.deuda)} ÷ ${n} = ${(r.deuda / n).toLocaleString('es-MX',{minimumFractionDigits:4,maximumFractionDigits:4})}… ${s.centavos === 'redondear' ? 'redondeado por la cifra después de las milésimas (5 o más sube, 4 o menos baja)' : 'se cortan los centavos'}. Los ${n} pagos suman ${money.format(r.sum)} (${r.dif > 0 ? 'faltan' : 'sobran'} ${money.format(Math.abs(r.dif))}).`
-      : `${money.format(r.deuda)} ÷ ${n} ${k.many}`;
+    const pagoNote = `${money.format(r.deuda)} ÷ ${n} ${n === 1 ? k.one : k.many}`;
     return `<div class="hero">
       <div class="lbl">Pago ${k.adj}</div>
       <div class="big">${money.format(r.pago)}</div>
@@ -752,14 +750,12 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
         <div class="lpadd"><button class="btn small ghost" data-act="addlp">+ Agregar producto</button></div>
       </div>
 
-      <div class="sec-head" style="margin-top:28px"><div><h2>Ajustes del cálculo</h2><p>Cómo se convierte el % mensual al periodo del producto y cómo se manejan los centavos del pago.</p></div></div>
+      <div class="sec-head" style="margin-top:28px"><div><h2>Ajustes del cálculo</h2><p>Cómo se convierte el % mensual al periodo del producto.</p></div></div>
       <div class="panel lset">
         <label class="field"><span>IVA</span><div class="pctin"><input class="num" data-ls="iva" inputmode="decimal" value="${Number(s.iva) || 0}"></div></label>
         <label class="field"><span>Semanas por mes</span><input class="num" data-ls="semanasMes" inputmode="decimal" value="${Number(s.semanasMes) || 4}"><small>Semanales: % ÷ esto</small></label>
         <label class="field"><span>Días por mes</span><input class="num" data-ls="diasMes" inputmode="decimal" value="${Number(s.diasMes) || 30}"><small>Diarios: % ÷ esto</small></label>
-        <label class="field"><span>Máx. pagos pendientes</span><input class="num" data-ls="maxPend" inputmode="numeric" value="${Number(s.maxPend) || 0}"></label>
-        <label class="field"><span>Centavos del pago</span><select class="sel" data-ls="centavos"><option value="cortar" ${s.centavos !== 'redondear' ? 'selected' : ''}>Cortar (677.66)</option><option value="redondear" ${s.centavos === 'redondear' ? 'selected' : ''}>Redondear (677.67)</option></select><small>Redondear: 1.3235 → 1.33 · 1.3234 → 1.32</small></label>
-      </div>
+        <label class="field"><span>Máx. pagos pendientes</span><input class="num" data-ls="maxPend" inputmode="numeric" value="${Number(s.maxPend) || 0}"></label>      </div>
       <p class="hint">Quincenales: % ÷ 2. Mensuales: el % se cobra completo cada mes.</p>`;
   }
   function refreshLoan(){
@@ -810,7 +806,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
       refreshLoan(); save();
     }
     else if (d.lp && el.tagName === 'SELECT'){ const p = LP(d.lp.split('|')[0]); if (!p) return; p.kind = el.value; save(); renderPrestamos(); }
-    else if (d.ls === 'centavos'){ state.loan.settings.centavos = el.value; refreshLoan(); save(); }  });
+  });
   const isMoney = el => el.dataset.lamt || el.hasAttribute('data-money');
   main.addEventListener('focusin', e => { if (isMoney(e.target)){ const v = parseAmt(e.target.value); e.target.value = v ? String(v) : ''; e.target.select(); } });
   main.addEventListener('focusout', e => {
