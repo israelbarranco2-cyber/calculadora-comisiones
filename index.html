@@ -643,7 +643,9 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
     const cap = Number(c.capital) || 0, ivaP = Number(s.iva) || 0;
     const interes = round2(cap * tot / 100), iva = round2(interes * ivaP / 100), deuda = round2(cap + interes + iva);
     const raw = deuda / n;
-    const pago = s.centavos === 'redondear' ? round2(raw) : Math.floor(raw * 100 + 1e-6) / 100;
+    // Redondear: se ve la cifra después de las milésimas (4º decimal): 5 o más sube un centavo, 4 o menos se queda.
+    const cut = Math.floor(raw * 100 + 1e-6) / 100, d4 = Math.floor(raw * 10000 + 1e-6) % 10;
+    const pago = s.centavos === 'redondear' ? round2(cut + (d4 >= 5 ? 0.01 : 0)) : cut;
     const sum = round2(pago * n), dif = round2(deuda - sum);
     const maxP = Math.max(0, Math.floor(Number(s.maxPend) || 0));
     const want = Math.max(0, Math.floor(Number(c.pendN) || 0)), pendN = Math.min(maxP, want);
@@ -666,7 +668,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
       ? `Se cobra el ${pct4(r.rate)} cada mes`
       : `${pct4(r.rate)} mensual ÷ ${r.div} ${p.kind === 'diario' ? 'días' : p.kind === 'semanal' ? 'semanas' : 'quincenas'} del mes`;
     const pagoNote = r.dif
-      ? `${money.format(r.deuda)} ÷ ${n} = ${(r.deuda / n).toLocaleString('es-MX',{minimumFractionDigits:4,maximumFractionDigits:4})}… ${s.centavos === 'redondear' ? 'redondeado' : 'se cortan los centavos'}. Los ${n} pagos suman ${money.format(r.sum)} (${r.dif > 0 ? 'faltan' : 'sobran'} ${money.format(Math.abs(r.dif))}).`
+      ? `${money.format(r.deuda)} ÷ ${n} = ${(r.deuda / n).toLocaleString('es-MX',{minimumFractionDigits:4,maximumFractionDigits:4})}… ${s.centavos === 'redondear' ? 'redondeado por la cifra después de las milésimas (5 o más sube, 4 o menos baja)' : 'se cortan los centavos'}. Los ${n} pagos suman ${money.format(r.sum)} (${r.dif > 0 ? 'faltan' : 'sobran'} ${money.format(Math.abs(r.dif))}).`
       : `${money.format(r.deuda)} ÷ ${n} ${k.many}`;
     return `<div class="hero">
       <div class="lbl">Pago ${k.adj}</div>
@@ -756,7 +758,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
         <label class="field"><span>Semanas por mes</span><input class="num" data-ls="semanasMes" inputmode="decimal" value="${Number(s.semanasMes) || 4}"><small>Semanales: % ÷ esto</small></label>
         <label class="field"><span>Días por mes</span><input class="num" data-ls="diasMes" inputmode="decimal" value="${Number(s.diasMes) || 30}"><small>Diarios: % ÷ esto</small></label>
         <label class="field"><span>Máx. pagos pendientes</span><input class="num" data-ls="maxPend" inputmode="numeric" value="${Number(s.maxPend) || 0}"></label>
-        <label class="field"><span>Centavos del pago</span><select class="sel" data-ls="centavos"><option value="cortar" ${s.centavos !== 'redondear' ? 'selected' : ''}>Cortar (677.66)</option><option value="redondear" ${s.centavos === 'redondear' ? 'selected' : ''}>Redondear (677.67)</option></select></label>
+        <label class="field"><span>Centavos del pago</span><select class="sel" data-ls="centavos"><option value="cortar" ${s.centavos !== 'redondear' ? 'selected' : ''}>Cortar (677.66)</option><option value="redondear" ${s.centavos === 'redondear' ? 'selected' : ''}>Redondear (677.67)</option></select><small>Redondear: 1.3235 → 1.33 · 1.3234 → 1.32</small></label>
       </div>
       <p class="hint">Quincenales: % ÷ 2. Mensuales: el % se cobra completo cada mes.</p>`;
   }
