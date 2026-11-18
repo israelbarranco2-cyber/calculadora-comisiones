@@ -376,7 +376,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
       </section>`;
     } else if (gateMode === 'listo'){
       h = `<section class="panel card">
-        <h2>${info.prueba ? `¡Bienvenido, ${esc(info.nombre || '')}!` : `¡Tu cuenta está activa, ${esc(info.nombre || '')}!`}</h2>
+        <h2>${info.prueba || info.gratis ? `¡Bienvenido, ${esc(info.nombre || '')}!` : `¡Tu cuenta está activa, ${esc(info.nombre || '')}!`}</h2>
         ${info.prueba ? `<p>Tienes <b>${info.diasPrueba} días de prueba gratis</b>, hasta el ${fechaLarga(info.vigente)}.</p>` : ''}
         <p>Tu clave es:</p>
         <div class="code">${esc(info.clave || '')}</div>
@@ -398,7 +398,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
       h = `<div style="text-align:center;display:grid;gap:6px;justify-items:center">
           <div class="mark" style="width:52px;height:52px;font-size:24px;border-radius:15px">%</div>
           <h2>Comisiones y Préstamos</h2>
-          <p>${reg2 ? 'Regístrate y pruébala gratis. Después cuesta $5 al mes.' : 'Entra con tu celular y tu clave.'}</p>
+          <p>${reg2 ? 'Regístrate con tu nombre y tu celular.' : 'Entra con tu celular y tu clave.'}</p>
         </div>
         <div class="seg" role="group" aria-label="Opción">
           <button data-g="mode:entrar" aria-pressed="${!reg2}">Entrar</button>
@@ -408,7 +408,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
             <label class="field"><span>Nombre completo</span><input class="txt" id="gNom" maxlength="60" autocomplete="name" required value="${esc(reg?.nombre || '')}"></label>
             <label class="field"><span>Celular (10 dígitos)</span><input class="txt" id="gCel" inputmode="tel" autocomplete="tel" maxlength="14" required value="${esc(reg?.cel || '')}"></label>
             ${msgHTML()}
-            <button class="btn primary" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Registrando…' : 'Registrarme y probar gratis'}</button>
+            <button class="btn primary" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Registrando…' : 'Registrarme'}</button>
             <p style="font-size:13px">Tu celular será tu usuario y tu clave se genera al momento.</p>
           </form>`
         : `<form class="panel card" id="gLogin">
@@ -428,19 +428,19 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
   function showCuenta(){
     const s = sess() || {}, info = LS.get('acc_info') || {};
     mainEl.hidden = true; gate.hidden = false;
-    gate.innerHTML = `<div class="sec-head" style="margin-top:20px"><div><h2>Mi cuenta</h2><p>${s.admin ? 'Eres el administrador: tienes acceso ilimitado.' : s.prueba ? 'Estás en tu periodo de prueba gratis.' : 'Tu suscripción a la calculadora.'}</p></div></div>
+    gate.innerHTML = `<div class="sec-head" style="margin-top:20px"><div><h2>Mi cuenta</h2><p>${s.admin ? 'Eres el administrador: tienes acceso ilimitado.' : s.gratis ? 'Tu acceso a la calculadora es gratis.' : s.prueba ? 'Estás en tu periodo de prueba gratis.' : 'Tu suscripción a la calculadora.'}</p></div></div>
       <div class="gate" style="margin:0;max-width:520px">
         <section class="panel"><dl class="acctlist">
           <dt>Nombre</dt><dd>${esc(s.nombre || '')}</dd>
           <dt>${s.admin ? 'Correo' : 'Celular'}</dt><dd>${esc(s.cel || '')}</dd>
-          ${s.admin ? '<dt>Acceso</dt><dd>Ilimitado</dd>' : `
+          ${s.admin ? '<dt>Acceso</dt><dd>Ilimitado</dd>' : s.gratis ? '<dt>Estado</dt><dd>Gratis</dd>' : `
           <dt>Estado</dt><dd>${s.prueba ? 'Periodo de prueba' : 'Activa'}</dd>
           <dt>Vigente hasta</dt><dd>${s.vigente ? fechaLarga(s.vigente) : '—'}</dd>
           <dt>Días restantes</dt><dd>${s.vigente ? diasRest(s.vigente) : 0}</dd>
           <dt>Costo</dt><dd>$${num.format(info.precio || 5)} al mes</dd>`}
         </dl></section>
-        ${!s.admin ? `<p class="hint" style="margin:0">Se revisa tu acceso con internet cada ${info.dias || 3} días.${info.datos ? ` Para pagar o renovar: <b>${esc(info.datos)}</b>` : ''}</p>` : ''}
-        ${!s.admin && info.whatsapp ? `<a class="btn wa" target="_blank" rel="noopener" href="${waLink(info.whatsapp, `Hola, soy ${s.nombre} (${s.cel}). Quiero informes de mi cuenta de la Calculadora.`)}">Pedir informes o renovar por WhatsApp</a>` : ''}
+        ${!s.admin ? `<p class="hint" style="margin:0">Se revisa tu acceso con internet cada ${info.dias || 3} días.${info.datos && !s.gratis ? ` Para pagar o renovar: <b>${esc(info.datos)}</b>` : ''}</p>` : ''}
+        ${!s.admin && info.whatsapp ? `<a class="btn wa" target="_blank" rel="noopener" href="${waLink(info.whatsapp, `Hola, soy ${s.nombre} (${s.cel}). Quiero informes de mi cuenta de la Calculadora.`)}">${s.gratis ? 'Pedir informes por WhatsApp' : 'Pedir informes o renovar por WhatsApp'}</a>` : ''}
         <div class="tools"><button class="btn" data-g="back">Volver</button><button class="btn danger" data-g="logout">Cerrar sesión</button></div>
       </div>`;
   }
@@ -476,8 +476,8 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
   }
   function saveLogin(user, clave, r){
     const dias = Number(r.dias) || 3;
-    LS.set('acc_info', {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre, dias});
-    LS.set('acc_sess', {cel:user, clave, nombre:r.nombre, admin:!!r.admin, prueba:!!r.prueba, vigente:r.vigente, key:r.key,
+    LS.set('acc_info', {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre, dias, gratis:!!r.gratis});
+    LS.set('acc_sess', {cel:user, clave, nombre:r.nombre, admin:!!r.admin, prueba:!!r.prueba, gratis:!!r.gratis, vigente:r.vigente, key:r.key,
       okUntil: Math.min(r.vigente, Date.now() + dias * 864e5)});
     if (r.catalog) LS.set('acc_cat', r.catalog);
     LS.set('acc_last', {cel:user, nombre:r.nombre}); LS.del('acc_reg');
@@ -560,7 +560,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
         const r = await api({a:'registro', nombre, cel, token:devToken()});
         busy = false;
         if (!r.ok) return setGate('solicitar', r.error || 'No se pudo registrar.');
-        LS.set('acc_info', {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre, clave:r.clave, cel, prueba:!!r.prueba, diasPrueba:r.diasPrueba, vigente:r.vigente});
+        LS.set('acc_info', {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre, clave:r.clave, cel, prueba:!!r.prueba, gratis:!!r.gratis, diasPrueba:r.diasPrueba, vigente:r.vigente});
         if (r.yaRegistrado){ LS.set('acc_last', {cel, nombre:r.nombre}); setGate('entrar', r.mensaje, true); }
         else if (r.estado === 'activo' && r.clave) setGate('listo');
         else setGate('pendiente');
