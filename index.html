@@ -228,6 +228,32 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
 .lset .num,.lset .sel{width:100%}
 .lset .num{text-align:right}
 
+/* Acceso */
+.acct{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--accent-soft);color:var(--accent);font-weight:800;font-size:13px;cursor:pointer;flex:none;display:grid;place-items:center}
+.acct[hidden]{display:none}
+.locked .tabs,.locked .bottom,.locked .acct,.locked .sync{display:none!important}
+.gate{max-width:440px;margin:12px auto;display:grid;gap:16px}
+.gate .card{padding:20px;display:grid;gap:14px}
+.gate h2{font-family:var(--f-display);font-size:22px;margin:0;text-wrap:balance}
+.gate p{margin:0;color:var(--muted)}
+.gate .txt{width:100%}
+.gate .btn{justify-content:center}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border:1px solid var(--line);border-radius:12px;padding:4px}
+.seg button{border:0;background:transparent;padding:9px;border-radius:9px;font-weight:700;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.gmsg{font-size:14px;color:var(--danger);font-weight:700;margin:0}
+.gmsg:empty{display:none}
+.gmsg.info{color:var(--muted)}
+.paybox{background:var(--sunk);border:1px dashed var(--muted);border-radius:10px;padding:12px 14px;white-space:pre-wrap;font-weight:700;word-break:break-word}
+.code{font-family:var(--f-display);font-size:34px;letter-spacing:.2em;text-align:center;background:var(--accent-soft);color:var(--accent);border-radius:12px;padding:12px;font-weight:700}
+.btn.wa{background:#25D366;border-color:#25D366;color:#06301A}
+.linkbtn{border:0;background:transparent;color:var(--accent);font-weight:700;cursor:pointer;padding:4px;justify-self:center}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 72px);transform:translateX(-50%);background:var(--hero-bg);color:var(--hero-fg);padding:12px 18px;border-radius:12px;font-weight:700;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100% - 32px);text-align:center;transition:opacity .4s}
+.toast[hidden]{display:none}
+.acctlist{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;padding:16px}
+.acctlist dt{color:var(--muted);font-weight:700;font-size:13px}
+.acctlist dd{margin:0;font-weight:700;text-align:right}
+
 .bottom{display:none}
 @media (max-width:1080px){
   .calc,.loan{grid-template-columns:minmax(0,1fr)}
@@ -240,6 +266,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
 }
 @media (max-width:760px){
   .tabs,.sync .txtlbl{display:none}
+  .acct{margin-left:auto}
   .gmeta{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .lhead{display:none}
   .line{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px;grid-template-areas:"p p x" "m m m" "c v v";row-gap:8px}
@@ -276,8 +303,10 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
       <button class="tab" role="tab" data-view="prestamos" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4M18 10v4"/></svg>Préstamos</button>
     </nav>
     <div class="sync" id="sync" data-s="ok"><i></i><span class="txtlbl" id="syncTxt" hidden>Cargando…</span></div>
+    <button class="acct" id="acctBtn" hidden aria-label="Mi cuenta" title="Mi cuenta"></button>
   </div>
 </header>
+<div class="toast" id="toast" hidden></div>
 
 <main class="wrap" id="main"></main>
 <nav class="bottom" role="tablist" aria-label="Secciones" id="bottomNav"></nav>
@@ -425,6 +454,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
   let confirmKey = null;
   function render(){
     updateHeader();
+    if (view === 'cuenta'){ renderCuenta(); return; }
     if (!loaded){ main.innerHTML = '<div class="emptystate"><p>Cargando tus datos…</p></div>'; return; }
     if (!state){ renderEmpty(); return; }
     if (view === 'gestores') renderGestores();
@@ -893,6 +923,220 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
   function isEditing(){ const a = document.activeElement; return a && main.contains(a) && /INPUT|SELECT/.test(a.tagName); }
   const valid = s => s && Array.isArray(s.levels) && Array.isArray(s.types) && Array.isArray(s.products) && Array.isArray(s.gestores) && s.rates;
 
+  // ---------- Acceso por suscripción ----------
+  // URL de la app web de Google Apps Script (termina en /exec). Vacía = sin control de acceso.
+  const ACCESS_URL = '';
+  const gateOn = () => !!ACCESS_URL && !(window.claude && window.claude.use);
+  const LS = {
+    get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
+    set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+    del(k){ try { localStorage.removeItem(k); } catch(e){} }
+  };
+  const cel10 = v => String(v || '').replace(/\D/g,'').slice(-10);
+  const userId = v => String(v || '').includes('@') ? String(v).trim().toLowerCase() : cel10(v);
+  function devToken(){
+    let t = LS.get('acc_token');
+    if (!t){ t = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2,'0')).join(''); LS.set('acc_token', t); }
+    return t;
+  }
+  async function api(p){
+    const r = await fetch(ACCESS_URL + '?' + new URLSearchParams(p));
+    if (!r.ok) throw new Error('red');
+    return r.json();
+  }
+  const sess = () => LS.get('acc_sess');
+  const sessOK = () => { const s = sess(); return !!(s && s.vigente > Date.now()); };
+  let gateMode = 'entrar', gateMsg = '', gateMsgInfo = false, busy = false;
+
+  function toast(t){
+    const el = $('#toast'); el.textContent = t; el.hidden = false; el.style.opacity = '1';
+    clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => { el.hidden = true; }, 400); }, 3500);
+  }
+  const waLink = (num, text) => 'https://wa.me/52' + num + '?text=' + encodeURIComponent(text);
+  const msgHTML = () => `<p class="gmsg ${gateMsgInfo ? 'info' : ''}" role="status">${esc(gateMsg)}</p>`;
+  function payHTML(info, nombre, cel){
+    const precio = info.precio || 5;
+    return `<p>Para activar tu cuenta paga <b>$${num.format(precio)} al mes</b>:</p>
+      <div class="paybox">${esc(info.datos || 'Pide los datos de pago al administrador.')}</div>
+      ${info.whatsapp ? `<a class="btn wa" target="_blank" rel="noopener" href="${waLink(info.whatsapp, `Hola, soy ${nombre || ''}${cel ? ' (' + cel + ')' : ''}. Te envío mi comprobante de pago de la Calculadora.`)}">Mandar comprobante por WhatsApp</a>` : ''}`;
+  }
+
+  function renderGate(){
+    document.body.classList.add('locked');
+    const reg = LS.get('acc_reg'), info = LS.get('acc_info') || {};
+    let h;
+    if (gateMode === 'pendiente' && reg){
+      h = `<section class="panel card">
+        <h2>Solicitud enviada, ${esc(reg.nombre)}</h2>
+        ${payHTML(info, reg.nombre, reg.cel)}
+        <p>En cuanto se confirme tu pago, aquí mismo te aparece tu clave.</p>
+        ${msgHTML()}
+        <button class="btn primary" data-g="check" ${busy ? 'disabled' : ''}>${busy ? 'Revisando…' : 'Ya pagué, revisar'}</button>
+        <button class="linkbtn" data-g="mode:entrar">Ya tengo mi clave</button>
+      </section>`;
+    } else if (gateMode === 'listo'){
+      h = `<section class="panel card">
+        <h2>¡Tu cuenta está activa, ${esc(info.nombre || '')}!</h2>
+        <p>Tu clave es:</p>
+        <div class="code">${esc(info.clave || '')}</div>
+        <p>Guárdala: la necesitas junto con tu celular para entrar.</p>
+        ${msgHTML()}
+        <button class="btn primary" data-g="enterNew" ${busy ? 'disabled' : ''}>${busy ? 'Entrando…' : 'Entrar a la calculadora'}</button>
+      </section>`;
+    } else if (gateMode === 'vencido'){
+      const v = LS.get('acc_last') || {};
+      h = `<section class="panel card">
+        <h2>Tu suscripción venció${v.nombre ? ', ' + esc(v.nombre) : ''}</h2>
+        ${payHTML(info, v.nombre, v.cel)}
+        ${msgHTML()}
+        <button class="btn primary" data-g="recheck" ${busy ? 'disabled' : ''}>${busy ? 'Revisando…' : 'Ya pagué, revisar'}</button>
+        <button class="linkbtn" data-g="mode:entrar">Entrar con otra cuenta</button>
+      </section>`;
+    } else {
+      const reg2 = gateMode === 'solicitar';
+      h = `<div style="text-align:center;display:grid;gap:6px;justify-items:center">
+          <div class="mark" style="width:52px;height:52px;font-size:24px;border-radius:15px">%</div>
+          <h2>Comisiones y Préstamos</h2>
+          <p>${reg2 ? 'Pide tu acceso: cuesta $5 al mes.' : 'Entra con tu celular y tu clave.'}</p>
+        </div>
+        <div class="seg" role="group" aria-label="Opción">
+          <button data-g="mode:entrar" aria-pressed="${!reg2}">Entrar</button>
+          <button data-g="mode:solicitar" aria-pressed="${reg2}">Solicitar acceso</button>
+        </div>
+        ${reg2 ? `<form class="panel card" id="gReg">
+            <label class="field"><span>Nombre completo</span><input class="txt" id="gNom" maxlength="60" autocomplete="name" required value="${esc(reg?.nombre || '')}"></label>
+            <label class="field"><span>Celular (10 dígitos)</span><input class="txt" id="gCel" inputmode="tel" autocomplete="tel" maxlength="14" required value="${esc(reg?.cel || '')}"></label>
+            ${msgHTML()}
+            <button class="btn primary" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Enviando…' : 'Solicitar acceso'}</button>
+            <p style="font-size:13px">Tu celular será tu usuario. Al confirmarse tu pago se genera tu clave.</p>
+          </form>`
+        : `<form class="panel card" id="gLogin">
+            ${gateMode === 'admin'
+              ? `<label class="field"><span>Correo del administrador</span><input class="txt" id="gUser" type="email" autocomplete="username" required></label>`
+              : `<label class="field"><span>Celular</span><input class="txt" id="gUser" inputmode="tel" autocomplete="username" required value="${esc(cel10((LS.get('acc_last') || {}).cel) || reg?.cel || '')}"></label>`}
+            <label class="field"><span>Clave</span><input class="txt" id="gPass" type="password" autocomplete="current-password" required></label>
+            ${msgHTML()}
+            <button class="btn primary" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Entrando…' : 'Entrar'}</button>
+          </form>
+          <button class="linkbtn" data-g="mode:${gateMode === 'admin' ? 'entrar' : 'admin'}">${gateMode === 'admin' ? 'Entrar con celular' : 'Entrar como administrador'}</button>`}`;
+    }
+    main.innerHTML = `<div class="gate">${h}</div>`;
+  }
+  function setGate(mode, msg = '', info = false){ gateMode = mode; gateMsg = msg; gateMsgInfo = info; renderGate(); }
+  const netErr = 'No hay conexión. Necesitas internet para este paso.';
+
+  async function doLogin(user, clave){
+    busy = true; gateMsg = ''; renderGate();
+    try {
+      const r = await api({a:'login', cel:user, clave});
+      busy = false;
+      LS.set('acc_info', {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre});
+      if (r.ok){
+        LS.set('acc_sess', {cel:user, clave, nombre:r.nombre, vigente:r.vigente, admin:!!r.admin});
+        LS.set('acc_last', {cel:user, nombre:r.nombre}); LS.del('acc_reg');
+        enterApp(true); return;
+      }
+      if (r.estado === 'vencido'){ LS.set('acc_last', {cel:user, clave, nombre:r.nombre}); setGate('vencido'); return; }
+      setGate(gateMode === 'listo' || gateMode === 'vencido' ? 'entrar' : gateMode, r.error || 'Celular o clave incorrectos.');
+    } catch(e){ busy = false; setGate(gateMode, netErr); }
+  }
+
+  let appStarted = false;
+  function enterApp(welcome){
+    document.body.classList.remove('locked');
+    const s = sess();
+    const ab = $('#acctBtn');
+    if (gateOn() && s){ ab.hidden = false; ab.textContent = s.admin ? '★' : initials(s.nombre); }
+    if (welcome && s) toast(`¡Bienvenido, ${s.nombre}!`);
+    if (!appStarted){ appStarted = true; start(); } else { setView(view === 'cuenta' ? 'gestores' : view); }
+  }
+  async function revalidate(){
+    const s = sess(); if (!s || !navigator.onLine) return;
+    try {
+      const r = await api({a:'login', cel:s.cel, clave:s.clave});
+      LS.set('acc_info', {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre});
+      if (r.ok){ s.vigente = r.vigente; s.nombre = r.nombre; LS.set('acc_sess', s); return; }
+      LS.del('acc_sess');
+      if (r.estado === 'vencido'){ LS.set('acc_last', {cel:s.cel, clave:s.clave, nombre:r.nombre}); setGate('vencido'); }
+      else setGate('entrar', 'Tu clave ya no es válida. Pide una nueva al administrador.');
+    } catch(e){ /* sin internet: se sigue usando hasta la fecha de vigencia */ }
+  }
+
+  function renderCuenta(){
+    const s = sess() || {}, info = LS.get('acc_info') || {};
+    const dias = s.vigente ? Math.max(0, Math.ceil((s.vigente - Date.now()) / 864e5)) : 0;
+    main.innerHTML = `<div class="sec-head"><div><h2>Mi cuenta</h2><p>${s.admin ? 'Eres el administrador: tienes acceso ilimitado.' : 'Tu suscripción a la calculadora.'}</p></div></div>
+      <div class="gate" style="margin:0;max-width:520px">
+        <section class="panel">
+          <dl class="acctlist">
+            <dt>Nombre</dt><dd>${esc(s.nombre || '')}</dd>
+            <dt>${s.admin ? 'Correo' : 'Celular'}</dt><dd>${esc(s.cel || '')}</dd>
+            ${s.admin ? '<dt>Acceso</dt><dd>Ilimitado</dd>' : `<dt>Vigente hasta</dt><dd>${s.vigente ? new Date(s.vigente).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) : '—'}</dd>
+            <dt>Días restantes</dt><dd>${dias}</dd>
+            <dt>Costo</dt><dd>$${num.format(info.precio || 5)} al mes</dd>`}
+          </dl>
+        </section>
+        ${!s.admin && info.whatsapp ? `<a class="btn wa" target="_blank" rel="noopener" href="${waLink(info.whatsapp, `Hola, soy ${s.nombre} (${s.cel}). Quiero informes de mi cuenta de la Calculadora.`)}">Pedir informes o renovar por WhatsApp</a>` : ''}
+        ${!s.admin && info.datos ? `<p class="hint" style="margin:0">Para renovar paga a: <b>${esc(info.datos)}</b></p>` : ''}
+        <div class="tools"><button class="btn" data-g="back">Volver</button><button class="btn danger" data-g="logout">Cerrar sesión</button></div>
+      </div>`;
+  }
+
+  $('#acctBtn').addEventListener('click', () => setView('cuenta'));
+  main.addEventListener('click', async e => {
+    const b = e.target.closest('[data-g]'); if (!b) return;
+    const g = b.dataset.g;
+    if (g.startsWith('mode:')){ setGate(g.slice(5)); return; }
+    if (g === 'back'){ setView('gestores'); return; }
+    if (g === 'logout'){ LS.del('acc_sess'); $('#acctBtn').hidden = true; setGate('entrar', 'Cerraste sesión.', true); return; }
+    if (g === 'enterNew'){ const reg = LS.get('acc_reg') || {}, info = LS.get('acc_info') || {}; doLogin(reg.cel, info.clave); return; }
+    if (g === 'recheck'){ const v = LS.get('acc_last') || {}; if (v.cel && v.clave) doLogin(v.cel, v.clave); else setGate('entrar'); return; }
+    if (g === 'check'){
+      const reg = LS.get('acc_reg'); if (!reg) return setGate('entrar');
+      busy = true; gateMsg = ''; renderGate();
+      try {
+        const r = await api({a:'estado', cel:reg.cel, token:devToken()});
+        busy = false;
+        LS.set('acc_info', Object.assign({}, LS.get('acc_info'), {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre, clave:r.clave}));
+        if (r.estado === 'activo' && r.clave) setGate('listo');
+        else if (r.estado === 'activo') setGate('entrar', 'Tu cuenta ya está activa. Entra con la clave que te mandaron.', true);
+        else setGate('pendiente', 'Todavía no se confirma tu pago. Si ya pagaste, manda tu comprobante por WhatsApp.', true);
+      } catch(err){ busy = false; setGate('pendiente', netErr); }
+    }
+  });
+  main.addEventListener('submit', async e => {
+    if (e.target.id === 'gLogin'){
+      e.preventDefault();
+      const u = userId($('#gUser').value), p = $('#gPass').value.trim();
+      if (!u.includes('@') && u.length !== 10) return setGate(gateMode, 'El celular debe tener 10 dígitos.');
+      doLogin(u, p);
+    } else if (e.target.id === 'gReg'){
+      e.preventDefault();
+      const nombre = $('#gNom').value.trim().replace(/\s+/g,' '), cel = cel10($('#gCel').value);
+      if (nombre.length < 2) return setGate('solicitar', 'Escribe tu nombre.');
+      if (cel.length !== 10) return setGate('solicitar', 'El celular debe tener 10 dígitos.');
+      LS.set('acc_reg', {nombre, cel});
+      busy = true; gateMsg = ''; renderGate();
+      try {
+        const r = await api({a:'registro', nombre, cel, token:devToken()});
+        busy = false;
+        if (!r.ok) return setGate('solicitar', r.error || 'No se pudo enviar.');
+        LS.set('acc_info', {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre});
+        if (r.yaRegistrado){ LS.set('acc_last', {cel, nombre:r.nombre}); setGate('entrar', r.mensaje, true); }
+        else setGate('pendiente');
+      } catch(err){ busy = false; setGate('solicitar', netErr); }
+    }
+  });
+
+  function boot(){
+    if (!gateOn()){ appStarted = true; start(); return; }
+    if (sessOK()){ enterApp(true); revalidate(); return; }
+    const s = sess();
+    if (s){ LS.set('acc_last', {cel:s.cel, clave:s.clave, nombre:s.nombre}); LS.del('acc_sess'); setGate('vencido'); if (navigator.onLine) doLogin(s.cel, s.clave); return; }
+    gateMode = LS.get('acc_reg') ? 'pendiente' : 'entrar';
+    renderGate();
+  }
+
   // ---------- Arranque ----------
   function startLocal(){
     mode = 'local';
@@ -919,7 +1163,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
       render();
     }, () => { clearTimeout(timer); if (!loaded) startLocal(); else setSync('error','Se perdió la conexión'); });
   }
-  start();
+  boot();
 })();
 </script>
 
