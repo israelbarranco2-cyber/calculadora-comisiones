@@ -310,8 +310,278 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
 
 <main class="wrap" id="main"></main>
 <nav class="bottom" role="tablist" aria-label="Secciones" id="bottomNav"></nav>
+<div class="wrap" id="gate" hidden></div>
 
 <script>
+/* Acceso por suscripción. Esta parte es pública; la calculadora llega cifrada (app.enc)
+   y solo se abre con la llave que da el servidor a quien tiene una clave vigente. */
+(function(){
+  // URL de la app web de Google Apps Script (termina en /exec). Vacía = sin control de acceso.
+  const ACCESS_URL = '';
+  if (!ACCESS_URL || (window.claude && window.claude.use)) return;
+  window.CalcShellWaiting = true;
+
+  const $ = s => document.querySelector(s);
+  const gate = $('#gate'), mainEl = $('#main'), acct = $('#acctBtn');
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const num = new Intl.NumberFormat('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const initials = s => (String(s).trim().split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0]).join('') || '?').toUpperCase();
+  const LS = {
+    get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
+    set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+    del(k){ try { localStorage.removeItem(k); } catch(e){} }
+  };
+  const cel10 = v => String(v || '').replace(/\D/g,'').slice(-10);
+  const userId = v => String(v || '').includes('@') ? String(v).trim().toLowerCase() : cel10(v);
+  const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  function devToken(){
+    let t = LS.get('acc_token');
+    if (!t){ t = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2,'0')).join(''); LS.set('acc_token', t); }
+    return t;
+  }
+  async function api(p){ const r = await fetch(ACCESS_URL + '?' + new URLSearchParams(p)); if (!r.ok) throw new Error('red'); return r.json(); }
+  async function post(o){ const r = await fetch(ACCESS_URL, {method:'POST', body: JSON.stringify(o)}); if (!r.ok) throw new Error('red'); return r.json(); }
+  const sess = () => LS.get('acc_sess');
+  const netErr = 'No hay conexión. Necesitas internet para este paso.';
+  let gateMode = 'entrar', gateMsg = '', gateMsgInfo = false, busy = false, coreLoaded = false;
+
+  function toast(t){
+    const el = $('#toast'); el.textContent = t; el.hidden = false; el.style.opacity = '1';
+    clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => { el.hidden = true; }, 400); }, 3500);
+  }
+  const waLink = (n, text) => 'https://wa.me/52' + n + '?text=' + encodeURIComponent(text);
+  const fechaLarga = ms => new Date(ms).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+  const diasRest = ms => Math.max(0, Math.ceil((ms - Date.now()) / 864e5));
+  const msgHTML = () => `<p class="gmsg ${gateMsgInfo ? 'info' : ''}" role="status">${esc(gateMsg)}</p>`;
+  function payHTML(info, nombre, cel){
+    return `<p>Para seguir usándola paga <b>$${num.format(info.precio || 5)} al mes</b>:</p>
+      <div class="paybox">${esc(info.datos || 'Pide los datos de pago al administrador.')}</div>
+      ${info.whatsapp ? `<a class="btn wa" target="_blank" rel="noopener" href="${waLink(info.whatsapp, `Hola, soy ${nombre || ''}${cel ? ' (' + cel + ')' : ''}. Te envío mi comprobante de pago de la Calculadora.`)}">Mandar comprobante por WhatsApp</a>` : ''}`;
+  }
+
+  // ---------- Pantallas ----------
+  function lock(){ document.body.classList.add('locked'); mainEl.hidden = true; gate.hidden = false; acct.hidden = true; }
+  function renderGate(){
+    lock();
+    const reg = LS.get('acc_reg'), info = LS.get('acc_info') || {};
+    let h;
+    if (gateMode === 'pendiente' && reg){
+      h = `<section class="panel card">
+        <h2>Solicitud enviada, ${esc(reg.nombre)}</h2>
+        ${payHTML(info, reg.nombre, reg.cel)}
+        <p>En cuanto se confirme tu pago, aquí mismo te aparece tu clave.</p>
+        ${msgHTML()}
+        <button class="btn primary" data-g="check" ${busy ? 'disabled' : ''}>${busy ? 'Revisando…' : 'Ya pagué, revisar'}</button>
+        <button class="linkbtn" data-g="mode:entrar">Ya tengo mi clave</button>
+      </section>`;
+    } else if (gateMode === 'listo'){
+      h = `<section class="panel card">
+        <h2>${info.prueba ? `¡Bienvenido, ${esc(info.nombre || '')}!` : `¡Tu cuenta está activa, ${esc(info.nombre || '')}!`}</h2>
+        ${info.prueba ? `<p>Tienes <b>${info.diasPrueba} días de prueba gratis</b>, hasta el ${fechaLarga(info.vigente)}.</p>` : ''}
+        <p>Tu clave es:</p>
+        <div class="code">${esc(info.clave || '')}</div>
+        <p>Guárdala: la necesitas junto con tu celular para entrar.</p>
+        ${msgHTML()}
+        <button class="btn primary" data-g="enterNew" ${busy ? 'disabled' : ''}>${busy ? 'Entrando…' : 'Entrar a la calculadora'}</button>
+      </section>`;
+    } else if (gateMode === 'vencido'){
+      const v = LS.get('acc_last') || {};
+      h = `<section class="panel card">
+        <h2>${v.prueba ? 'Terminó tu periodo de prueba' : 'Tu suscripción venció'}${v.nombre ? ', ' + esc(v.nombre) : ''}</h2>
+        ${payHTML(info, v.nombre, v.cel)}
+        ${msgHTML()}
+        <button class="btn primary" data-g="recheck" ${busy ? 'disabled' : ''}>${busy ? 'Revisando…' : 'Ya pagué, revisar'}</button>
+        <button class="linkbtn" data-g="mode:entrar">Entrar con otra cuenta</button>
+      </section>`;
+    } else {
+      const reg2 = gateMode === 'solicitar', adm = gateMode === 'admin';
+      h = `<div style="text-align:center;display:grid;gap:6px;justify-items:center">
+          <div class="mark" style="width:52px;height:52px;font-size:24px;border-radius:15px">%</div>
+          <h2>Comisiones y Préstamos</h2>
+          <p>${reg2 ? 'Regístrate y pruébala gratis. Después cuesta $5 al mes.' : 'Entra con tu celular y tu clave.'}</p>
+        </div>
+        <div class="seg" role="group" aria-label="Opción">
+          <button data-g="mode:entrar" aria-pressed="${!reg2}">Entrar</button>
+          <button data-g="mode:solicitar" aria-pressed="${reg2}">Registrarme</button>
+        </div>
+        ${reg2 ? `<form class="panel card" id="gReg">
+            <label class="field"><span>Nombre completo</span><input class="txt" id="gNom" maxlength="60" autocomplete="name" required value="${esc(reg?.nombre || '')}"></label>
+            <label class="field"><span>Celular (10 dígitos)</span><input class="txt" id="gCel" inputmode="tel" autocomplete="tel" maxlength="14" required value="${esc(reg?.cel || '')}"></label>
+            ${msgHTML()}
+            <button class="btn primary" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Registrando…' : 'Registrarme y probar gratis'}</button>
+            <p style="font-size:13px">Tu celular será tu usuario y tu clave se genera al momento.</p>
+          </form>`
+        : `<form class="panel card" id="gLogin">
+            ${adm
+              ? `<label class="field"><span>Correo del administrador</span><input class="txt" id="gUser" type="email" autocomplete="username" required></label>`
+              : `<label class="field"><span>Celular</span><input class="txt" id="gUser" inputmode="tel" autocomplete="username" required value="${esc(cel10((LS.get('acc_last') || {}).cel) || reg?.cel || '')}"></label>`}
+            <label class="field"><span>Clave</span><input class="txt" id="gPass" type="password" autocomplete="current-password" required></label>
+            ${msgHTML()}
+            <button class="btn primary" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Entrando…' : 'Entrar'}</button>
+          </form>
+          <button class="linkbtn" data-g="mode:${adm ? 'entrar' : 'admin'}">${adm ? 'Entrar con celular' : 'Entrar como administrador'}</button>`}`;
+    }
+    gate.innerHTML = `<div class="gate">${h}</div>`;
+  }
+  function setGate(mode, msg = '', info = false){ gateMode = mode; gateMsg = msg; gateMsgInfo = info; renderGate(); }
+
+  function showCuenta(){
+    const s = sess() || {}, info = LS.get('acc_info') || {};
+    mainEl.hidden = true; gate.hidden = false;
+    gate.innerHTML = `<div class="sec-head" style="margin-top:20px"><div><h2>Mi cuenta</h2><p>${s.admin ? 'Eres el administrador: tienes acceso ilimitado.' : s.prueba ? 'Estás en tu periodo de prueba gratis.' : 'Tu suscripción a la calculadora.'}</p></div></div>
+      <div class="gate" style="margin:0;max-width:520px">
+        <section class="panel"><dl class="acctlist">
+          <dt>Nombre</dt><dd>${esc(s.nombre || '')}</dd>
+          <dt>${s.admin ? 'Correo' : 'Celular'}</dt><dd>${esc(s.cel || '')}</dd>
+          ${s.admin ? '<dt>Acceso</dt><dd>Ilimitado</dd>' : `
+          <dt>Estado</dt><dd>${s.prueba ? 'Periodo de prueba' : 'Activa'}</dd>
+          <dt>Vigente hasta</dt><dd>${s.vigente ? fechaLarga(s.vigente) : '—'}</dd>
+          <dt>Días restantes</dt><dd>${s.vigente ? diasRest(s.vigente) : 0}</dd>
+          <dt>Costo</dt><dd>$${num.format(info.precio || 5)} al mes</dd>`}
+        </dl></section>
+        ${!s.admin ? `<p class="hint" style="margin:0">Se revisa tu acceso con internet cada ${info.dias || 3} días.${info.datos ? ` Para pagar o renovar: <b>${esc(info.datos)}</b>` : ''}</p>` : ''}
+        ${!s.admin && info.whatsapp ? `<a class="btn wa" target="_blank" rel="noopener" href="${waLink(info.whatsapp, `Hola, soy ${s.nombre} (${s.cel}). Quiero informes de mi cuenta de la Calculadora.`)}">Pedir informes o renovar por WhatsApp</a>` : ''}
+        <div class="tools"><button class="btn" data-g="back">Volver</button><button class="btn danger" data-g="logout">Cerrar sesión</button></div>
+      </div>`;
+  }
+  function hideCuenta(){ if (!document.body.classList.contains('locked')){ gate.hidden = true; mainEl.hidden = false; } }
+
+  // ---------- Abrir la calculadora ----------
+  async function loadCore(){
+    const s = sess();
+    if (!coreLoaded){
+      if (!window.CalcApp){
+        const r = await fetch('app.enc', {cache:'no-cache'});
+        if (!r.ok) throw new Error('app');
+        const buf = new Uint8Array(await r.arrayBuffer());
+        const key = await crypto.subtle.importKey('raw', b64(s.key), 'AES-GCM', false, ['decrypt']);
+        const code = new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM', iv: buf.slice(0, 12)}, key, buf.slice(12)));
+        new Function(code)();
+      }
+      coreLoaded = true;
+      window.CalcApp.setReadonly(!s.admin);
+      window.CalcApp.applyCatalog(LS.get('acc_cat'));
+      window.CalcApp.start();
+      if (s.admin) setTimeout(() => window.CalcShell.onCatalog(window.CalcApp.getCatalog()), 1500);
+    } else {
+      window.CalcApp.applyCatalog(LS.get('acc_cat'));
+    }
+  }
+  function unlock(welcome){
+    const s = sess();
+    document.body.classList.remove('locked'); gate.hidden = true; mainEl.hidden = false;
+    acct.hidden = false; acct.textContent = s.admin ? '★' : initials(s.nombre);
+    loadCore().then(() => { if (welcome) toast(`¡Bienvenido, ${s.nombre}!`); })
+      .catch(() => { coreLoaded = false; setGate('entrar', 'No se pudo abrir la calculadora. Revisa tu conexión e inténtalo otra vez.'); });
+  }
+  function saveLogin(user, clave, r){
+    const dias = Number(r.dias) || 3;
+    LS.set('acc_info', {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre, dias});
+    LS.set('acc_sess', {cel:user, clave, nombre:r.nombre, admin:!!r.admin, prueba:!!r.prueba, vigente:r.vigente, key:r.key,
+      okUntil: Math.min(r.vigente, Date.now() + dias * 864e5)});
+    if (r.catalog) LS.set('acc_cat', r.catalog);
+    LS.set('acc_last', {cel:user, nombre:r.nombre}); LS.del('acc_reg');
+  }
+  async function doLogin(user, clave){
+    busy = true; gateMsg = ''; renderGate();
+    try {
+      const r = await api({a:'login', cel:user, clave, dev:devToken()});
+      busy = false;
+      if (r.ok){ saveLogin(user, clave, r); unlock(true); return; }
+      LS.set('acc_info', Object.assign({}, LS.get('acc_info'), {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp}));
+      if (r.estado === 'vencido'){ LS.set('acc_last', {cel:user, clave, nombre:r.nombre, prueba:!!r.prueba, vencido:true}); setGate('vencido'); return; }
+      setGate(['listo','vencido','pendiente'].includes(gateMode) ? 'entrar' : gateMode, r.error || 'Celular o clave incorrectos.');
+    } catch(e){ busy = false; setGate(gateMode, netErr); }
+  }
+  async function revalidate(){
+    const s = sess(); if (!s || !navigator.onLine) return;
+    let r; try { r = await api({a:'login', cel:s.cel, clave:s.clave, dev:devToken()}); } catch(e){ return; }
+    if (r.ok){
+      const before = JSON.stringify(LS.get('acc_cat'));
+      saveLogin(s.cel, s.clave, r);
+      if (coreLoaded && r.catalog && JSON.stringify(r.catalog) !== before) window.CalcApp.applyCatalog(r.catalog);
+      return;
+    }
+    LS.del('acc_sess');
+    if (r.estado === 'vencido'){ LS.set('acc_last', {cel:s.cel, clave:s.clave, nombre:r.nombre, prueba:!!r.prueba, vencido:true}); location.reload(); }
+    else { LS.set('acc_msg', r.error || 'Tu clave ya no es válida.'); location.reload(); }
+  }
+
+  // El administrador sube sus cambios de productos y porcentajes para que les lleguen a todos.
+  let lastPushed = JSON.stringify(LS.get('acc_cat')), pushTimer = null;
+  window.CalcShell = {
+    onCatalog(cat){
+      const s = sess(); if (!s || !s.admin || !cat) return;
+      const str = JSON.stringify(cat); if (str === lastPushed) return;
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(async () => {
+        try { const r = await post({a:'catalogo', correo:s.cel, clave:s.clave, data:str}); if (r.ok){ lastPushed = str; LS.set('acc_cat', cat); } } catch(e){}
+      }, 2000);
+    }
+  };
+
+  // ---------- Eventos ----------
+  acct.addEventListener('click', showCuenta);
+  document.addEventListener('click', e => { if (e.target.closest('.tab')) hideCuenta(); }, true);
+  gate.addEventListener('click', async e => {
+    const b = e.target.closest('[data-g]'); if (!b) return;
+    const g = b.dataset.g;
+    if (g.startsWith('mode:')) return setGate(g.slice(5));
+    if (g === 'back') return hideCuenta();
+    if (g === 'logout'){ LS.del('acc_sess'); LS.set('acc_msg', 'Cerraste sesión.'); location.reload(); return; }
+    if (g === 'enterNew'){ const info = LS.get('acc_info') || {}, reg = LS.get('acc_reg') || {}; return doLogin(info.cel || reg.cel, info.clave); }
+    if (g === 'recheck'){ const v = LS.get('acc_last') || {}; return (v.cel && v.clave) ? doLogin(v.cel, v.clave) : setGate('entrar'); }
+    if (g === 'check'){
+      const reg = LS.get('acc_reg'); if (!reg) return setGate('entrar');
+      busy = true; gateMsg = ''; renderGate();
+      try {
+        const r = await api({a:'estado', cel:reg.cel, token:devToken()});
+        busy = false;
+        LS.set('acc_info', Object.assign({}, LS.get('acc_info'), {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre, clave:r.clave, cel:reg.cel, prueba:false}));
+        if (r.estado === 'activo' && r.clave) setGate('listo');
+        else if (r.estado === 'activo') setGate('entrar', 'Tu cuenta ya está activa. Entra con la clave que te mandaron.', true);
+        else setGate('pendiente', 'Todavía no se confirma tu pago. Si ya pagaste, manda tu comprobante por WhatsApp.', true);
+      } catch(err){ busy = false; setGate('pendiente', netErr); }
+    }
+  });
+  gate.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (e.target.id === 'gLogin'){
+      const u = userId($('#gUser').value), p = $('#gPass').value.trim();
+      if (!u.includes('@') && u.length !== 10) return setGate(gateMode, 'El celular debe tener 10 dígitos.');
+      doLogin(u, p);
+    } else if (e.target.id === 'gReg'){
+      const nombre = $('#gNom').value.trim().replace(/\s+/g,' '), cel = cel10($('#gCel').value);
+      if (nombre.length < 2) return setGate('solicitar', 'Escribe tu nombre.');
+      if (cel.length !== 10) return setGate('solicitar', 'El celular debe tener 10 dígitos.');
+      LS.set('acc_reg', {nombre, cel});
+      busy = true; gateMsg = ''; renderGate();
+      try {
+        const r = await api({a:'registro', nombre, cel, token:devToken()});
+        busy = false;
+        if (!r.ok) return setGate('solicitar', r.error || 'No se pudo registrar.');
+        LS.set('acc_info', {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre, clave:r.clave, cel, prueba:!!r.prueba, diasPrueba:r.diasPrueba, vigente:r.vigente});
+        if (r.yaRegistrado){ LS.set('acc_last', {cel, nombre:r.nombre}); setGate('entrar', r.mensaje, true); }
+        else if (r.estado === 'activo' && r.clave) setGate('listo');
+        else setGate('pendiente');
+      } catch(err){ busy = false; setGate('solicitar', netErr); }
+    }
+  });
+
+  // ---------- Arranque ----------
+  const s = sess(), flash = LS.get('acc_msg'); LS.del('acc_msg');
+  if (s && s.key && s.okUntil > Date.now()){ unlock(true); revalidate(); }
+  else if (s && s.key){
+    LS.set('acc_last', {cel:s.cel, clave:s.clave, nombre:s.nombre, prueba:s.prueba});
+    if (navigator.onLine) doLogin(s.cel, s.clave);
+    else setGate('entrar', `Conéctate a internet: cada ${(LS.get('acc_info') || {}).dias || 3} días se revisa tu acceso.`, true);
+  }
+  else if (LS.get('acc_reg') && !(LS.get('acc_info') || {}).clave) setGate('pendiente');
+  else if ((LS.get('acc_last') || {}).vencido && flash == null) setGate('vencido');
+  else setGate('entrar', flash || '', true);
+})();
+</script>
+<script data-core>
 (function(){
   const LCOL = ['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--muted)','var(--muted)'];
   const money = new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',minimumFractionDigits:2,maximumFractionDigits:2});
@@ -439,6 +709,7 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
   async function flush(){
     if (saving){ again = true; return; }
     const body = JSON.stringify(state);
+    try { if (window.CalcShell && window.CalcShell.onCatalog) window.CalcShell.onCatalog(getCatalog()); } catch(e){}
     if (mode === 'local'){
       try { localStorage.setItem('com_state2', body); setSync('local','Guardado en este equipo'); } catch(e){ setSync('error','No se pudo guardar'); }
       return;
@@ -454,7 +725,6 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
   let confirmKey = null;
   function render(){
     updateHeader();
-    if (view === 'cuenta'){ renderCuenta(); return; }
     if (!loaded){ main.innerHTML = '<div class="emptystate"><p>Cargando tus datos…</p></div>'; return; }
     if (!state){ renderEmpty(); return; }
     if (view === 'gestores') renderGestores();
@@ -923,224 +1193,47 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
   function isEditing(){ const a = document.activeElement; return a && main.contains(a) && /INPUT|SELECT/.test(a.tagName); }
   const valid = s => s && Array.isArray(s.levels) && Array.isArray(s.types) && Array.isArray(s.products) && Array.isArray(s.gestores) && s.rates;
 
-  // ---------- Acceso por suscripción ----------
-  // URL de la app web de Google Apps Script (termina en /exec). Vacía = sin control de acceso.
-  const ACCESS_URL = '';
-  const gateOn = () => !!ACCESS_URL && !(window.claude && window.claude.use);
-  const LS = {
-    get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
-    set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
-    del(k){ try { localStorage.removeItem(k); } catch(e){} }
-  };
-  const cel10 = v => String(v || '').replace(/\D/g,'').slice(-10);
-  const userId = v => String(v || '').includes('@') ? String(v).trim().toLowerCase() : cel10(v);
-  function devToken(){
-    let t = LS.get('acc_token');
-    if (!t){ t = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2,'0')).join(''); LS.set('acc_token', t); }
-    return t;
-  }
-  async function api(p){
-    const r = await fetch(ACCESS_URL + '?' + new URLSearchParams(p));
-    if (!r.ok) throw new Error('red');
-    return r.json();
-  }
-  const sess = () => LS.get('acc_sess');
-  const sessOK = () => { const s = sess(); return !!(s && s.vigente > Date.now()); };
-  let gateMode = 'entrar', gateMsg = '', gateMsgInfo = false, busy = false;
-
-  function toast(t){
-    const el = $('#toast'); el.textContent = t; el.hidden = false; el.style.opacity = '1';
-    clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => { el.hidden = true; }, 400); }, 3500);
-  }
-  const waLink = (num, text) => 'https://wa.me/52' + num + '?text=' + encodeURIComponent(text);
-  const msgHTML = () => `<p class="gmsg ${gateMsgInfo ? 'info' : ''}" role="status">${esc(gateMsg)}</p>`;
-  function payHTML(info, nombre, cel){
-    const precio = info.precio || 5;
-    return `<p>Para activar tu cuenta paga <b>$${num.format(precio)} al mes</b>:</p>
-      <div class="paybox">${esc(info.datos || 'Pide los datos de pago al administrador.')}</div>
-      ${info.whatsapp ? `<a class="btn wa" target="_blank" rel="noopener" href="${waLink(info.whatsapp, `Hola, soy ${nombre || ''}${cel ? ' (' + cel + ')' : ''}. Te envío mi comprobante de pago de la Calculadora.`)}">Mandar comprobante por WhatsApp</a>` : ''}`;
-  }
-
-  function renderGate(){
-    document.body.classList.add('locked');
-    const reg = LS.get('acc_reg'), info = LS.get('acc_info') || {};
-    let h;
-    if (gateMode === 'pendiente' && reg){
-      h = `<section class="panel card">
-        <h2>Solicitud enviada, ${esc(reg.nombre)}</h2>
-        ${payHTML(info, reg.nombre, reg.cel)}
-        <p>En cuanto se confirme tu pago, aquí mismo te aparece tu clave.</p>
-        ${msgHTML()}
-        <button class="btn primary" data-g="check" ${busy ? 'disabled' : ''}>${busy ? 'Revisando…' : 'Ya pagué, revisar'}</button>
-        <button class="linkbtn" data-g="mode:entrar">Ya tengo mi clave</button>
-      </section>`;
-    } else if (gateMode === 'listo'){
-      h = `<section class="panel card">
-        <h2>¡Tu cuenta está activa, ${esc(info.nombre || '')}!</h2>
-        <p>Tu clave es:</p>
-        <div class="code">${esc(info.clave || '')}</div>
-        <p>Guárdala: la necesitas junto con tu celular para entrar.</p>
-        ${msgHTML()}
-        <button class="btn primary" data-g="enterNew" ${busy ? 'disabled' : ''}>${busy ? 'Entrando…' : 'Entrar a la calculadora'}</button>
-      </section>`;
-    } else if (gateMode === 'vencido'){
-      const v = LS.get('acc_last') || {};
-      h = `<section class="panel card">
-        <h2>Tu suscripción venció${v.nombre ? ', ' + esc(v.nombre) : ''}</h2>
-        ${payHTML(info, v.nombre, v.cel)}
-        ${msgHTML()}
-        <button class="btn primary" data-g="recheck" ${busy ? 'disabled' : ''}>${busy ? 'Revisando…' : 'Ya pagué, revisar'}</button>
-        <button class="linkbtn" data-g="mode:entrar">Entrar con otra cuenta</button>
-      </section>`;
-    } else {
-      const reg2 = gateMode === 'solicitar';
-      h = `<div style="text-align:center;display:grid;gap:6px;justify-items:center">
-          <div class="mark" style="width:52px;height:52px;font-size:24px;border-radius:15px">%</div>
-          <h2>Comisiones y Préstamos</h2>
-          <p>${reg2 ? 'Pide tu acceso: cuesta $5 al mes.' : 'Entra con tu celular y tu clave.'}</p>
-        </div>
-        <div class="seg" role="group" aria-label="Opción">
-          <button data-g="mode:entrar" aria-pressed="${!reg2}">Entrar</button>
-          <button data-g="mode:solicitar" aria-pressed="${reg2}">Solicitar acceso</button>
-        </div>
-        ${reg2 ? `<form class="panel card" id="gReg">
-            <label class="field"><span>Nombre completo</span><input class="txt" id="gNom" maxlength="60" autocomplete="name" required value="${esc(reg?.nombre || '')}"></label>
-            <label class="field"><span>Celular (10 dígitos)</span><input class="txt" id="gCel" inputmode="tel" autocomplete="tel" maxlength="14" required value="${esc(reg?.cel || '')}"></label>
-            ${msgHTML()}
-            <button class="btn primary" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Enviando…' : 'Solicitar acceso'}</button>
-            <p style="font-size:13px">Tu celular será tu usuario. Al confirmarse tu pago se genera tu clave.</p>
-          </form>`
-        : `<form class="panel card" id="gLogin">
-            ${gateMode === 'admin'
-              ? `<label class="field"><span>Correo del administrador</span><input class="txt" id="gUser" type="email" autocomplete="username" required></label>`
-              : `<label class="field"><span>Celular</span><input class="txt" id="gUser" inputmode="tel" autocomplete="username" required value="${esc(cel10((LS.get('acc_last') || {}).cel) || reg?.cel || '')}"></label>`}
-            <label class="field"><span>Clave</span><input class="txt" id="gPass" type="password" autocomplete="current-password" required></label>
-            ${msgHTML()}
-            <button class="btn primary" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Entrando…' : 'Entrar'}</button>
-          </form>
-          <button class="linkbtn" data-g="mode:${gateMode === 'admin' ? 'entrar' : 'admin'}">${gateMode === 'admin' ? 'Entrar con celular' : 'Entrar como administrador'}</button>`}`;
+  // ---------- Catálogo compartido (lo define el administrador en el servidor) ----------
+  let readonlyCat = false, pendingCat = null;
+  const CAT_SEL = '[data-rate],[data-lname],[data-lmin],[data-tname],[data-pname],[data-ptype],[data-lp],[data-ls],#newName,#newType';
+  const CAT_HIDE = '[data-askp],[data-asklp],[data-delp],[data-dellp],[data-act="addlp"],#addForm button';
+  function applyRO(){
+    if (!readonlyCat) return;
+    main.querySelectorAll(CAT_SEL).forEach(el => { el.disabled = true; });
+    main.querySelectorAll(CAT_HIDE).forEach(el => { el.hidden = true; });
+    if (!main.querySelector('.ro-note') && main.querySelector(CAT_SEL)){
+      const sh = main.querySelector('.sec-head');
+      if (sh) sh.insertAdjacentHTML('afterend', '<div class="banner ro-note"><span>Los productos, porcentajes y tasas los define el administrador y se actualizan solos.</span></div>');
     }
-    main.innerHTML = `<div class="gate">${h}</div>`;
   }
-  function setGate(mode, msg = '', info = false){ gateMode = mode; gateMsg = msg; gateMsgInfo = info; renderGate(); }
-  const netErr = 'No hay conexión. Necesitas internet para este paso.';
-
-  async function doLogin(user, clave){
-    busy = true; gateMsg = ''; renderGate();
-    try {
-      const r = await api({a:'login', cel:user, clave});
-      busy = false;
-      LS.set('acc_info', {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre});
-      if (r.ok){
-        LS.set('acc_sess', {cel:user, clave, nombre:r.nombre, vigente:r.vigente, admin:!!r.admin});
-        LS.set('acc_last', {cel:user, nombre:r.nombre}); LS.del('acc_reg');
-        enterApp(true); return;
-      }
-      if (r.estado === 'vencido'){ LS.set('acc_last', {cel:user, clave, nombre:r.nombre}); setGate('vencido'); return; }
-      setGate(gateMode === 'listo' || gateMode === 'vencido' ? 'entrar' : gateMode, r.error || 'Celular o clave incorrectos.');
-    } catch(e){ busy = false; setGate(gateMode, netErr); }
+  renderTabla = (f => function(){ f(); applyRO(); })(renderTabla);
+  renderProductos = (f => function(){ f(); applyRO(); })(renderProductos);
+  renderPrestamos = (f => function(){ f(); applyRO(); })(renderPrestamos);
+  function getCatalog(){
+    if (!state) return null;
+    return {levels: state.levels, types: state.types, rates: state.rates, products: state.products, loanProducts: state.loan.products, loanSettings: state.loan.settings};
   }
-
-  let appStarted = false;
-  function enterApp(welcome){
-    document.body.classList.remove('locked');
-    const s = sess();
-    const ab = $('#acctBtn');
-    if (gateOn() && s){ ab.hidden = false; ab.textContent = s.admin ? '★' : initials(s.nombre); }
-    if (welcome && s) toast(`¡Bienvenido, ${s.nombre}!`);
-    if (!appStarted){ appStarted = true; start(); } else { setView(view === 'cuenta' ? 'gestores' : view); }
+  function mergeCat(cat){
+    if (!state) state = baseConfig();
+    ['levels','types','rates','products'].forEach(k => { if (cat[k]) state[k] = cat[k]; });
+    migrate(state);
+    if (Array.isArray(cat.loanProducts)) state.loan.products = cat.loanProducts;
+    if (cat.loanSettings) state.loan.settings = Object.assign({}, state.loan.settings, cat.loanSettings);
+    const c = state.loan.calc, first = state.loan.products[0];
+    if (first && !state.loan.products.some(p => p.id === c.productId)){ c.productId = first.id; c.seguro = Number(first.seguro) || 0; }
   }
-  async function revalidate(){
-    const s = sess(); if (!s || !navigator.onLine) return;
-    try {
-      const r = await api({a:'login', cel:s.cel, clave:s.clave});
-      LS.set('acc_info', {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre});
-      if (r.ok){ s.vigente = r.vigente; s.nombre = r.nombre; LS.set('acc_sess', s); return; }
-      LS.del('acc_sess');
-      if (r.estado === 'vencido'){ LS.set('acc_last', {cel:s.cel, clave:s.clave, nombre:r.nombre}); setGate('vencido'); }
-      else setGate('entrar', 'Tu clave ya no es válida. Pide una nueva al administrador.');
-    } catch(e){ /* sin internet: se sigue usando hasta la fecha de vigencia */ }
-  }
-
-  function renderCuenta(){
-    const s = sess() || {}, info = LS.get('acc_info') || {};
-    const dias = s.vigente ? Math.max(0, Math.ceil((s.vigente - Date.now()) / 864e5)) : 0;
-    main.innerHTML = `<div class="sec-head"><div><h2>Mi cuenta</h2><p>${s.admin ? 'Eres el administrador: tienes acceso ilimitado.' : 'Tu suscripción a la calculadora.'}</p></div></div>
-      <div class="gate" style="margin:0;max-width:520px">
-        <section class="panel">
-          <dl class="acctlist">
-            <dt>Nombre</dt><dd>${esc(s.nombre || '')}</dd>
-            <dt>${s.admin ? 'Correo' : 'Celular'}</dt><dd>${esc(s.cel || '')}</dd>
-            ${s.admin ? '<dt>Acceso</dt><dd>Ilimitado</dd>' : `<dt>Vigente hasta</dt><dd>${s.vigente ? new Date(s.vigente).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) : '—'}</dd>
-            <dt>Días restantes</dt><dd>${dias}</dd>
-            <dt>Costo</dt><dd>$${num.format(info.precio || 5)} al mes</dd>`}
-          </dl>
-        </section>
-        ${!s.admin && info.whatsapp ? `<a class="btn wa" target="_blank" rel="noopener" href="${waLink(info.whatsapp, `Hola, soy ${s.nombre} (${s.cel}). Quiero informes de mi cuenta de la Calculadora.`)}">Pedir informes o renovar por WhatsApp</a>` : ''}
-        ${!s.admin && info.datos ? `<p class="hint" style="margin:0">Para renovar paga a: <b>${esc(info.datos)}</b></p>` : ''}
-        <div class="tools"><button class="btn" data-g="back">Volver</button><button class="btn danger" data-g="logout">Cerrar sesión</button></div>
-      </div>`;
-  }
-
-  $('#acctBtn').addEventListener('click', () => setView('cuenta'));
-  main.addEventListener('click', async e => {
-    const b = e.target.closest('[data-g]'); if (!b) return;
-    const g = b.dataset.g;
-    if (g.startsWith('mode:')){ setGate(g.slice(5)); return; }
-    if (g === 'back'){ setView('gestores'); return; }
-    if (g === 'logout'){ LS.del('acc_sess'); $('#acctBtn').hidden = true; setGate('entrar', 'Cerraste sesión.', true); return; }
-    if (g === 'enterNew'){ const reg = LS.get('acc_reg') || {}, info = LS.get('acc_info') || {}; doLogin(reg.cel, info.clave); return; }
-    if (g === 'recheck'){ const v = LS.get('acc_last') || {}; if (v.cel && v.clave) doLogin(v.cel, v.clave); else setGate('entrar'); return; }
-    if (g === 'check'){
-      const reg = LS.get('acc_reg'); if (!reg) return setGate('entrar');
-      busy = true; gateMsg = ''; renderGate();
-      try {
-        const r = await api({a:'estado', cel:reg.cel, token:devToken()});
-        busy = false;
-        LS.set('acc_info', Object.assign({}, LS.get('acc_info'), {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre, clave:r.clave}));
-        if (r.estado === 'activo' && r.clave) setGate('listo');
-        else if (r.estado === 'activo') setGate('entrar', 'Tu cuenta ya está activa. Entra con la clave que te mandaron.', true);
-        else setGate('pendiente', 'Todavía no se confirma tu pago. Si ya pagaste, manda tu comprobante por WhatsApp.', true);
-      } catch(err){ busy = false; setGate('pendiente', netErr); }
-    }
-  });
-  main.addEventListener('submit', async e => {
-    if (e.target.id === 'gLogin'){
-      e.preventDefault();
-      const u = userId($('#gUser').value), p = $('#gPass').value.trim();
-      if (!u.includes('@') && u.length !== 10) return setGate(gateMode, 'El celular debe tener 10 dígitos.');
-      doLogin(u, p);
-    } else if (e.target.id === 'gReg'){
-      e.preventDefault();
-      const nombre = $('#gNom').value.trim().replace(/\s+/g,' '), cel = cel10($('#gCel').value);
-      if (nombre.length < 2) return setGate('solicitar', 'Escribe tu nombre.');
-      if (cel.length !== 10) return setGate('solicitar', 'El celular debe tener 10 dígitos.');
-      LS.set('acc_reg', {nombre, cel});
-      busy = true; gateMsg = ''; renderGate();
-      try {
-        const r = await api({a:'registro', nombre, cel, token:devToken()});
-        busy = false;
-        if (!r.ok) return setGate('solicitar', r.error || 'No se pudo enviar.');
-        LS.set('acc_info', {precio:r.precio, datos:r.datos, whatsapp:r.whatsapp, nombre:r.nombre});
-        if (r.yaRegistrado){ LS.set('acc_last', {cel, nombre:r.nombre}); setGate('entrar', r.mensaje, true); }
-        else setGate('pendiente');
-      } catch(err){ busy = false; setGate('solicitar', netErr); }
-    }
-  });
-
-  function boot(){
-    if (!gateOn()){ appStarted = true; start(); return; }
-    if (sessOK()){ enterApp(true); revalidate(); return; }
-    const s = sess();
-    if (s){ LS.set('acc_last', {cel:s.cel, clave:s.clave, nombre:s.nombre}); LS.del('acc_sess'); setGate('vencido'); if (navigator.onLine) doLogin(s.cel, s.clave); return; }
-    gateMode = LS.get('acc_reg') ? 'pendiente' : 'entrar';
-    renderGate();
+  function applyCatalog(cat){
+    if (!cat) return;
+    if (!loaded){ pendingCat = cat; return; }
+    mergeCat(cat); save();
+    if (isEditing()) pendingRemote = true; else render();
   }
 
   // ---------- Arranque ----------
   function startLocal(){
     mode = 'local';
     try { const raw = localStorage.getItem('com_state2'); const s = raw ? JSON.parse(raw) : null; state = valid(s) ? migrate(s) : null; } catch(e){ state = null; }
+    if (pendingCat){ mergeCat(pendingCat); pendingCat = null; try { localStorage.setItem('com_state2', JSON.stringify(state)); } catch(e){} }
     loaded = true; setSync('local','Guardado en este equipo'); render();
   }
   async function start(){
@@ -1163,7 +1256,8 @@ table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:760p
       render();
     }, () => { clearTimeout(timer); if (!loaded) startLocal(); else setSync('error','Se perdió la conexión'); });
   }
-  boot();
+  window.CalcApp = { start, applyCatalog, getCatalog, setReadonly(v){ readonlyCat = !!v; } };
+  if (!window.CalcShellWaiting) start();
 })();
 </script>
 
